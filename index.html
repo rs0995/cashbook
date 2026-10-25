@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cash Book</title>
+<meta name="theme-color" content="#2F4256">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Cash Book">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --ink: #2F4256; --ink-soft: #4A5D71; --ink-band: #2F4256; --marigold: #F26B21; --marigold-deep: #C2531A;
+  --peach: #FDEBE3; --mist: #ECEEF1; --paper: #FFFFFF; --rule: #DCE0E5; --muted: #66727F;
+  --green: #1E6B3A; --green-soft: #DCEFE3; --red: #A12B1F; --red-soft: #F8D9D6;
+  --num: 'Archivo', 'Lato', Arial, sans-serif; --text: 'Lato', Arial, sans-serif;
+  --r-sheet: 14px; --r-ctl: 10px; --ctl-h: 44px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--mist); color: var(--ink); font-family: var(--text); font-size: 15px; line-height: 1.45; }
+body { min-height: 100vh; -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--marigold); outline-offset: 2px; }
+.num { font-family: var(--num); font-stretch: 112%; font-variant-numeric: tabular-nums lining-nums; }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+
+/* progress line while the sheet is being read or written */
+#busy { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 50; overflow: hidden; opacity: 0; transition: opacity .2s; }
+#busy.on { opacity: 1; }
+#busy::after { content: ''; position: absolute; left: -40%; width: 40%; top: 0; bottom: 0; background: var(--marigold); animation: slide 1.1s linear infinite; }
+@keyframes slide { to { left: 100%; } }
+
+/* layout */
+.app { display: grid; grid-template-columns: 1fr; min-height: 100vh; padding-bottom: 72px; }
+.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr);
+  background: var(--paper); border-top: 1px solid var(--rule); padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); }
+.nav button { border: 0; background: none; padding: 6px 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 12px; color: var(--muted); min-height: 54px; border-radius: var(--r-ctl); }
+.nav button svg { width: 22px; height: 22px; }
+.nav button.on { color: var(--ink); font-weight: 700; }
+.nav button.on svg { color: var(--marigold); }
+main { padding: 0 0 24px; max-width: 1180px; width: 100%; min-width: 0; margin: 0 auto; }
+.dash > * { min-width: 0; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 10px; flex-wrap: wrap; }
+.brand { font-family: var(--num); font-stretch: 112%; font-weight: 750; font-size: 20px; letter-spacing: -.01em; }
+.brand small { display: block; font-family: var(--text); font-weight: 400; font-size: 12px; color: var(--muted); letter-spacing: 0; }
+.top h1 { margin: 0; }
+.period-pick { width: auto; min-width: 150px; }
+
+/* custom dates: From | To | Show, all one height */
+.custom { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; padding: 0 18px 12px; }
+.custom label { font-size: 12px; color: var(--muted); display: grid; gap: 4px; min-width: 0; }
+.custom input { text-align: left; }
+.custom .btn { min-height: var(--ctl-h); height: var(--ctl-h); padding: 0 22px; }
+@media (max-width: 420px) { .custom { grid-template-columns: 1fr 1fr; } .custom .btn { grid-column: 1 / -1; width: 100%; } }
+
+/* the cash band: opening + in − out = closing */
+.band { background: var(--ink-band); color: #E9EEF3; margin: 0 12px; border-radius: var(--r-sheet); padding: 18px 18px 20px; }
+.band .when { font-size: 13px; color: #B7C3CF; margin-bottom: 12px; }
+.eq { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 6px; align-items: baseline; }
+.eq .op { font-family: var(--num); font-size: 20px; color: #8FA0B2; text-align: center; width: 18px; }
+.eq button.term { all: unset; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; cursor: pointer;
+  padding: 4px 0; border-bottom: 1px dashed rgba(233, 238, 243, .18); }
+.eq button.term:focus-visible { outline: 3px solid var(--marigold); outline-offset: 3px; border-radius: 4px; }
+.eq .term span:first-child { font-size: 14px; color: #C9D3DD; }
+.eq .term .num { font-size: 20px; font-weight: 600; color: #FFFFFF; }
+.eq .equals { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px;
+  margin-top: 10px; padding-top: 10px; border-top: 2px solid rgba(233, 238, 243, .35); }
+.eq .equals .lbl { font-size: 14px; color: #C9D3DD; white-space: nowrap; }
+.closing { font-family: var(--num); font-stretch: 118%; font-weight: 780; font-size: 44px; line-height: 1; color: var(--marigold);
+  font-variant-numeric: tabular-nums lining-nums; letter-spacing: -.02em; }
+.band .foot { margin-top: 12px; font-size: 13px; color: #B7C3CF; display: flex; gap: 14px; flex-wrap: wrap; }
+
+/* sections */
+.sec { background: var(--paper); margin: 12px; border-radius: var(--r-sheet); padding: 16px 16px 18px; }
+.sec h2 { font-family: var(--num); font-stretch: 112%; font-size: 18px; font-weight: 700; margin: 0 0 12px; letter-spacing: -.01em; }
+.sec .head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.sec .head-row h2 { margin: 0; }
+.seg { display: inline-flex; background: var(--mist); border-radius: var(--r-ctl); padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 7px 12px; border-radius: 8px; font-size: 14px; min-height: 36px; color: var(--ink-soft); }
+.seg button.on { background: var(--paper); color: var(--ink); font-weight: 700; box-shadow: 0 1px 2px rgba(47, 66, 86, .14); }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-soft); background: none; border: 0; padding: 6px 0; }
+.switch .knob { width: 38px; height: 22px; border-radius: 11px; background: var(--rule); position: relative; transition: background .15s; flex: none; }
+.switch .knob::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch[aria-checked="true"] .knob { background: var(--ink); }
+.switch[aria-checked="true"] .knob::after { left: 19px; }
+
+/* quick amount bar */
+.quickbar { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.quickbar .btn { height: var(--ctl-h); min-height: var(--ctl-h); padding: 0 18px; }
+
+/* donut + legend */
+.chartbox { position: relative; width: min(260px, 72vw); aspect-ratio: 1; margin: 6px auto 4px; }
+.chartbox canvas { position: absolute; inset: 0; }
+.chartbox .center { position: absolute; inset: 22%; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.chartbox .center .k { font-size: 13px; color: var(--muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto; }
+.chartbox .center .v { font-family: var(--num); font-stretch: 112%; font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+.crumb { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; min-height: 36px; }
+.crumb button { border: 1px solid var(--rule); background: var(--paper); border-radius: 999px; padding: 6px 12px 6px 8px; font-size: 14px; display: inline-flex; gap: 4px; align-items: center; }
+.crumb strong { font-family: var(--num); font-stretch: 112%; font-size: 16px; }
+.legend { list-style: none; margin: 8px 0 0; padding: 0; }
+.legend li button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 12px 1fr auto; column-gap: 10px; row-gap: 5px;
+  align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--mist); cursor: pointer; }
+.legend li button:focus-visible { outline: 3px solid var(--marigold); outline-offset: -1px; border-radius: 6px; }
+.legend li:last-child button { border-bottom: 0; }
+.legend .dot { width: 12px; height: 12px; border-radius: 3px; }
+.legend .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend .amt { text-align: right; font-size: 15px; font-weight: 600; }
+.legend .amt small { display: block; color: var(--muted); font-family: var(--text); font-size: 12px; font-weight: 400; }
+.legend .bar { grid-column: 2 / 4; height: 4px; background: var(--mist); border-radius: 2px; overflow: hidden; }
+.legend .bar i { display: block; height: 100%; border-radius: 2px; }
+.legend li.nodrill button { cursor: default; }
+.legend li.empty { text-align: center; color: var(--muted); padding: 14px 8px 6px; }
+.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.empty { text-align: center; color: var(--muted); padding: 22px 8px; }
+
+/* simple rows (recoverables, modes) */
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--mist); align-items: baseline; }
+.rows li:last-child { border-bottom: 0; }
+.rows .num { font-weight: 600; }
+
+/* controls */
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field > label, .field > .lbl { font-size: 13px; font-weight: 700; color: var(--ink); }
+input[type=text], input[type=number], input[type=date], input[type=search], select, textarea {
+  width: 100%; min-height: var(--ctl-h); padding: 10px 12px; border: 1px solid #C9CED6; border-radius: var(--r-ctl); background: var(--paper);
+  font-size: 16px; color: var(--ink); }
+input[type=date] { height: var(--ctl-h); -webkit-appearance: none; appearance: none; display: block; }
+input[type=date]::-webkit-date-and-time-value { text-align: left; }
+select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--marigold); box-shadow: 0 0 0 3px var(--peach); }
+select:disabled, input:disabled { background-color: var(--mist); color: var(--muted); }
+.with-plus { display: flex; gap: 8px; }
+.with-plus select { flex: 1; min-width: 0; }
+.plus { flex: none; width: var(--ctl-h); border: 1px solid #C9CED6; border-radius: var(--r-ctl); background: var(--paper); font-size: 20px; line-height: 1; }
+.plus:hover { border-color: var(--marigold); color: var(--marigold-deep); }
+.inline-add { display: flex; gap: 8px; margin-top: 6px; }
+.inline-add input { flex: 1; min-width: 0; }
+.btn { border: 0; border-radius: var(--r-ctl); padding: 12px 18px; min-height: 46px; font-weight: 700; font-size: 15px; }
+.btn.primary { background: var(--marigold); color: #fff; }
+.btn.primary:hover { background: var(--marigold-deep); }
+.btn.ink { background: var(--ink); color: #fff; }
+.btn.quiet { background: var(--mist); color: var(--ink); }
+.btn[disabled] { opacity: .55; cursor: default; }
+.amount-in { font-family: var(--num); font-stretch: 112%; font-size: 30px !important; font-weight: 700; min-height: 58px !important; }
+.reimb-note { padding: 10px 12px; border-radius: var(--r-ctl); background: var(--peach); color: var(--marigold-deep); font-weight: 700; font-size: 14px; }
+.form-foot { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+.form-foot .btn.primary { flex: 1; }
+
+/* transactions list */
+.filters { display: grid; gap: 8px; padding: 0 12px 4px; }
+.filters .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filters select { width: auto; flex: 1 1 140px; min-height: 40px; font-size: 15px; }
+.day { margin: 12px 12px 0; background: var(--paper); border-radius: var(--r-sheet); overflow: hidden; }
+.day h3 { margin: 0; display: flex; justify-content: space-between; align-items: baseline; padding: 12px 16px 8px; font-size: 14px;
+  font-family: var(--num); font-stretch: 112%; font-weight: 700; background: var(--mist); border-bottom: 1px solid var(--rule); }
+.day h3 .net { font-size: 13px; font-weight: 600; }
+.entry { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 4px minmax(0, 1fr) auto 18px; column-gap: 12px;
+  align-items: center; padding: 12px 12px 12px 0; border-bottom: 1px solid var(--mist); cursor: pointer; }
+.entry:last-child { border-bottom: 0; }
+.entry:hover { background: #FAFBFC; }
+.entry:focus-visible { outline: 3px solid var(--marigold); outline-offset: -3px; }
+.entry .stripe { align-self: stretch; width: 4px; border-radius: 0 2px 2px 0; }
+.entry .main { min-width: 0; display: grid; gap: 2px; }
+.entry .desc { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry .cat { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); min-width: 0; }
+.entry .cat .hs { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry .amt { font-family: var(--num); font-stretch: 112%; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.entry .amt.in { color: var(--green); }
+.entry .chev { color: var(--muted); width: 18px; height: 18px; }
+@media (min-width: 600px) {
+  .entry .main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; column-gap: 16px; }
+  .entry .cat { font-size: 15px; color: var(--ink); }
+}
+.mode-chip { border: 1px solid var(--marigold); color: var(--marigold-deep); border-radius: 999px; padding: 0 8px; font-size: 12px; line-height: 20px; white-space: nowrap; }
+.lock { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); }
+.lock svg { width: 13px; height: 13px; }
+.more { text-align: center; color: var(--muted); font-size: 13px; padding: 14px; }
+
+/* transaction detail card */
+.dbar { display: flex; align-items: center; gap: 6px; padding: 10px 12px 4px; }
+.dbar h2 { flex: 1; margin: 0; font-family: var(--num); font-stretch: 112%; font-size: 20px; }
+.icon-btn { border: 0; background: none; width: 44px; height: 44px; border-radius: var(--r-ctl); color: var(--ink-soft); display: grid; place-items: center; flex: none; }
+.icon-btn:hover { background: var(--paper); color: var(--ink); }
+.icon-btn.del:hover { color: var(--red); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn[disabled] { opacity: .35; cursor: default; background: none; }
+.card { background: var(--paper); margin: 8px 12px; border-radius: var(--r-sheet); padding: 6px 18px; overflow: hidden; touch-action: pan-y; }
+.card dl { margin: 0; }
+.card .fld { padding: 12px 0; border-bottom: 1px solid var(--mist); }
+.card .fld:last-child { border-bottom: 0; }
+.card dt { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.card dd { margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card dd .dot { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.card .big { font-family: var(--num); font-stretch: 112%; font-weight: 750; font-size: 30px; font-variant-numeric: tabular-nums; }
+.card .big.in { color: var(--green); }
+.card .hint { font-size: 13px; color: var(--muted); }
+.card.slide-l { animation: inL .22s ease-out; } .card.slide-r { animation: inR .22s ease-out; }
+@keyframes inL { from { transform: translateX(24px); opacity: .3; } } @keyframes inR { from { transform: translateX(-24px); opacity: .3; } }
+.pager { display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; padding: 6px 12px 12px; }
+.pager .pos { text-align: center; font-size: 14px; color: var(--muted); }
+.pager .icon-btn { width: 52px; height: 52px; background: var(--paper); color: var(--ink); }
+.pager .icon-btn svg { width: 24px; height: 24px; }
+
+/* categories */
+.hlist { list-style: none; margin: 0; padding: 0; }
+.hitem { border-bottom: 1px solid var(--mist); padding: 8px 0; }
+.hitem:last-child { border-bottom: 0; }
+.hline { display: flex; align-items: center; gap: 8px; }
+.hline .dot { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.hline .nm { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hitem .icon-btn { width: 36px; height: 36px; color: var(--muted); }
+.hitem .icon-btn:hover { background: var(--mist); }
+.hitem .icon-btn.del:hover { color: var(--red); }
+.hitem .icon-btn svg { width: 18px; height: 18px; }
+.subs { list-style: none; margin: 4px 0 0 22px; padding: 0; }
+.subs li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; padding: 1px 0; }
+.subs .inline-add { margin: 6px 0 4px; }
+.subs .inline-add input { min-height: 40px; font-size: 15px; }
+.subs .inline-add .btn { min-height: 40px; padding: 6px 14px; }
+.builtin { font-size: 12px; color: var(--muted); }
+.actions { display: grid; gap: 10px; }
+.result { margin-top: 10px; font-size: 14px; white-space: pre-wrap; }
+.result a { color: var(--marigold-deep); font-weight: 700; }
+
+/* edit sheet + confirm dialog */
+.scrim { position: fixed; inset: 0; background: rgba(23, 33, 44, .45); z-index: 30; opacity: 0; transition: opacity .2s; }
+.scrim.on { opacity: 1; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 31; background: var(--paper); border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  max-height: 92vh; overflow-y: auto; padding: 8px 18px calc(18px + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform .25s ease-out;
+  box-shadow: 0 -10px 30px rgba(23, 33, 44, .18); }
+.sheet.on { transform: none; }
+.sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--rule); margin: 4px auto 10px; }
+.sheet h2 { font-family: var(--num); font-stretch: 112%; font-size: 20px; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: center; }
+.sheet .foot { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 6px; }
+.confirm pre { white-space: pre-wrap; font-family: var(--text); font-size: 14px; background: var(--mist); border-radius: var(--r-ctl); padding: 12px; margin: 0 0 12px; }
+
+.toast { position: fixed; left: 50%; bottom: 88px; transform: translate(-50%, 20px); z-index: 40; background: var(--ink); color: #fff;
+  padding: 11px 16px; border-radius: var(--r-ctl); font-size: 14px; max-width: calc(100vw - 32px); opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+.toast.err { background: var(--red); }
+
+/* connect screen (first open on a phone) */
+.connect { position: fixed; inset: 0; z-index: 60; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; }
+.connect-box { width: 100%; max-width: 360px; display: grid; gap: 14px; }
+.connect-mark { width: 56px; height: 56px; border-radius: 14px; background: var(--marigold); display: grid; place-items: center;
+  font-family: var(--num); font-weight: 800; font-size: 30px; }
+.connect h1 { font-family: var(--num); font-stretch: 112%; font-size: 26px; line-height: 1.15; margin: 4px 0 0; }
+.connect p { margin: 0; color: #D5DCE3; }
+.connect p b { color: #fff; }
+.connect input[type=text] { font-family: var(--num); font-size: 26px; font-weight: 700; letter-spacing: 6px; text-align: center; text-transform: uppercase;
+  height: 60px; border-color: transparent; }
+.connect .btn { width: 100%; min-height: 52px; font-size: 16px; }
+.connect-msg { min-height: 1.4em; color: #FFC9A8 !important; font-weight: 700; }
+.phone-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+
+/* desktop */
+@media (min-width: 960px) {
+  .app { grid-template-columns: 210px 1fr; padding-bottom: 0; }
+  .nav { position: sticky; top: 0; height: 100vh; grid-template-columns: 1fr; grid-auto-rows: min-content; align-content: start; gap: 4px;
+    border-top: 0; border-right: 1px solid var(--rule); padding: 18px 12px; }
+  .nav button { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 10px 12px; font-size: 15px; min-height: 44px; }
+  .nav button.on { background: var(--mist); }
+  .nav .brand-side { display: block; padding: 4px 12px 18px; }
+  .top .brand { display: none; }
+  .dash { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; }
+  .dash .col-a { grid-column: 1; } .dash .col-b { grid-column: 2; grid-row: 1 / span 4; }
+  .closing { font-size: 56px; }
+  #v-entry, #v-detail { max-width: 640px; }
+  .sheet { left: 50%; right: auto; width: 520px; bottom: auto; top: 50%; border-radius: var(--r-sheet); transform: translate(-50%, -46%); opacity: 0;
+    pointer-events: none; transition: opacity .2s, transform .2s; max-height: 88vh; }
+  .sheet.on { transform: translate(-50%, -50%); opacity: 1; pointer-events: auto; }
+  .sheet .grab { display: none; }
+  .toast { bottom: 28px; }
+}
+@media (max-width: 959px) { .nav .brand-side { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="busy" aria-hidden="true"></div>
+<div class="app">
+  <nav class="nav" aria-label="Sections">
+    <div class="brand brand-side">Cash Book<small id="sideSub"></small></div>
+    <button data-view="dash" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/></svg><span>Dashboard</span></button>
+    <button data-view="entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>Quick entry</span></button>
+    <button data-view="txns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5"/></svg><span>Transactions</span></button>
+    <button data-view="cats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h13"/></svg><span>Categories</span></button>
+  </nav>
+
+  <main>
+    <div class="top" id="top">
+      <div class="brand">Cash Book<small id="topSub">Loading…</small></div>
+      <select class="period-pick" id="period" aria-label="Period"></select>
+    </div>
+    <div class="custom hidden" id="custom">
+      <label>From<input type="date" id="cStart"></label>
+      <label>To (blank = today)<input type="date" id="cEnd"></label>
+      <button class="btn ink" id="cApply">Show</button>
+    </div>
+
+    <!-- Dashboard -->
+    <section id="v-dash" class="dash">
+      <div class="col-a">
+        <div class="band" aria-live="polite">
+          <div class="when" id="when"></div>
+          <div class="eq">
+            <span class="op"></span><button class="term" data-go="all"><span>Opening cash</span><span class="num" id="eOpen">—</span></button>
+            <span class="op">+</span><button class="term" data-go="Income"><span>Cash in</span><span class="num" id="eIn">—</span></button>
+            <span class="op">−</span><button class="term" data-go="Expense"><span>Cash out</span><span class="num" id="eOut">—</span></button>
+            <div class="equals"><span class="lbl">Cash in hand</span><span class="closing" id="eClose">—</span></div>
+          </div>
+          <div class="foot"><span id="eCount"></span><span id="eAudit"></span></div>
+        </div>
+
+        <div class="sec">
+          <div class="quickbar">
+            <input type="text" inputmode="decimal" id="qAmt" placeholder="Amount, ₹" aria-label="Amount for a quick entry">
+            <button class="btn primary" id="qGo">Quick entry</button>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2>Still to settle</h2>
+          <ul class="rows" id="recov"></ul>
+        </div>
+
+        <div class="sec" id="mediaSec">
+          <h2>Paid by bank and card</h2>
+          <ul class="rows" id="media"></ul>
+          <p class="note">These don't change your cash in hand.</p>
+        </div>
+      </div>
+
+      <div class="col-b">
+        <div class="sec">
+          <div class="head-row">
+            <h2 id="chartTitle">Where it went</h2>
+            <div class="seg" role="radiogroup" aria-label="Show">
+              <button data-ctype="Expense" class="on" role="radio" aria-checked="true">Spent</button>
+              <button data-ctype="Income" role="radio" aria-checked="false">Received</button>
+            </div>
+          </div>
+          <div class="crumb hidden" id="crumb"><button id="back" aria-label="Back to all heads"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m14.5 6-6 6 6 6"/></svg>All heads</button><strong id="crumbName"></strong></div>
+          <div class="chartbox" id="chartbox">
+            <canvas id="pie" aria-label="Pie chart of heads" role="img"></canvas>
+            <div class="center"><div class="k" id="cK">Total</div><div class="v" id="cV">—</div></div>
+          </div>
+          <button class="switch" role="switch" aria-checked="false" id="allModes"><span class="knob"></span>Include bank and card payments</button>
+          <ul class="legend" id="legend"></ul>
+          <p class="note hidden" id="drillNote"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick entry (the form lives here; editing moves it into the sheet) -->
+    <section id="v-entry" class="hidden">
+      <div class="sec" id="entryHome">
+        <form id="entryForm" autocomplete="off">
+          <h2 class="sheet-title hidden"><span id="sheetTitle">Edit entry</span><button type="button" class="icon-btn" id="closeSheet" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button></h2>
+          <h2 class="page-title">Quick entry</h2>
+          <div class="field">
+            <div class="seg" role="radiogroup" aria-label="Type" id="typeSeg" style="width:100%">
+              <button type="button" data-type="Expense" class="on" style="flex:1">Spent</button>
+              <button type="button" data-type="Income" style="flex:1">Received</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="amt">Amount</label>
+            <input type="text" inputmode="decimal" id="amt" class="amount-in" placeholder="₹ 0" required>
+          </div>
+          <div class="field">
+            <label for="head">Head</label>
+            <div class="with-plus"><select id="head" required></select><button type="button" class="plus" data-new="head" aria-label="Add a head">+</button></div>
+            <div class="inline-add hidden" id="newHeadBox"><input type="text" placeholder="New head name" aria-label="New head name"><button type="button" class="btn ink">Add</button></div>
+          </div>
+          <div class="field" id="subField">
+            <label for="sub">Sub-head</label>
+            <div class="with-plus"><select id="sub"></select><button type="button" class="plus" data-new="sub" aria-label="Add a sub-head">+</button></div>
+            <div class="inline-add hidden" id="newSubBox"><input type="text" placeholder="New sub-head name" aria-label="New sub-head name"><button type="button" class="btn ink">Add</button></div>
+          </div>
+          <div class="field">
+            <label for="desc">Description</label>
+            <input type="text" id="desc" placeholder="What was it for?">
+          </div>
+          <div class="field" id="reimbField">
+            <div class="reimb-note">Reimbursable head — choose the company</div>
+            <div class="with-plus"><select id="company" aria-label="Company"></select><button type="button" class="plus" data-new="company" aria-label="Add a company">+</button></div>
+            <div class="inline-add hidden" id="newCompanyBox"><input type="text" placeholder="New company name" aria-label="New company name"><button type="button" class="btn ink">Add</button></div>
+          </div>
+          <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field" style="margin:0"><label for="mode">Paid by</label><select id="mode"></select></div>
+            <div class="field" style="margin:0"><label for="date">Date</label><input type="date" id="date" required></div>
+          </div>
+          <div class="form-foot"><button type="submit" class="btn primary" id="saveBtn">Save entry</button></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Transactions -->
+    <section id="v-txns" class="hidden">
+      <div class="filters">
+        <input type="search" id="q" placeholder="Search head, description, company" aria-label="Search transactions">
+        <div class="row">
+          <div class="seg" role="radiogroup" aria-label="Time">
+            <button data-scope="period" class="on">This period</button><button data-scope="all">All dates</button>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Type">
+            <button data-ftype="" class="on">All</button><button data-ftype="Income">In</button><button data-ftype="Expense">Out</button>
+          </div>
+        </div>
+        <div class="row">
+          <select id="fHead" aria-label="Head"><option value="">All heads</option></select>
+          <select id="fMode" aria-label="Payment mode"><option value="">All modes</option></select>
+        </div>
+      </div>
+      <div id="days"></div>
+    </section>
+
+    <!-- One transaction -->
+    <section id="v-detail" class="hidden">
+      <div class="dbar">
+        <button class="icon-btn" id="dBack" aria-label="Back to transactions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+        <h2>Details</h2>
+        <button class="icon-btn" id="dEdit" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
+        <button class="icon-btn del" id="dDel" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+      </div>
+      <div class="card" id="dCard"><dl id="dList"></dl></div>
+      <div class="pager">
+        <button class="icon-btn" id="dPrev" aria-label="Previous transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14.5 6-6 6 6 6"/></svg></button>
+        <div class="pos" id="dPos"></div>
+        <button class="icon-btn" id="dNext" aria-label="Next transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9.5 6 6 6-6 6"/></svg></button>
+      </div>
+    </section>
+
+    <!-- Categories -->
+    <section id="v-cats" class="hidden">
+      <div class="sec">
+        <div class="head-row">
+          <h2>Categories</h2>
+          <div class="seg" role="radiogroup" aria-label="List">
+            <button data-list="Expense" class="on">Spent</button><button data-list="Income">Received</button><button data-list="Mode">Modes</button><button data-list="Company">Companies</button>
+          </div>
+        </div>
+        <div class="inline-add" style="margin:0 0 10px">
+          <input type="text" id="newHead" placeholder="New head" aria-label="New name">
+          <button class="btn ink" id="addHead">Add</button>
+        </div>
+        <ul class="hlist" id="hlist"></ul>
+      </div>
+      <div class="sec">
+        <h2>Statement and audit</h2>
+        <div class="actions">
+          <button class="btn quiet" id="pdfBtn">Generate PDF of this period</button>
+          <button class="btn ink" id="auditBtn">Send for audit</button>
+        </div>
+        <div class="result" id="actResult"></div>
+      </div>
+      <div class="sec">
+        <h2>This phone</h2>
+        <div class="phone-row">
+          <span>Connected to your cash book. Disconnect it if you lose the phone or give it away.</span>
+          <button class="btn quiet" id="unpairBtn">Disconnect this phone</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- edit sheet: the entry form is moved in here while editing -->
+<div class="scrim hidden" id="scrim"></div>
+<div class="sheet hidden" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="grab"></div></div>
+
+<!-- confirm dialog -->
+<div class="sheet confirm hidden" id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="grab"></div>
+  <h2 id="confirmTitle">Send for audit?</h2>
+  <pre id="confirmText"></pre>
+  <div class="foot"><button class="btn quiet" id="confirmNo">Cancel</button><button class="btn primary" id="confirmYes">Send for audit</button></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="connect hidden" id="connect" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
+  <form class="connect-box" id="connectForm" autocomplete="off" novalidate>
+    <div class="connect-mark" aria-hidden="true">₹</div>
+    <h1 id="connectTitle">Connect your cash book</h1>
+    <p>On your computer, open the Cash Book sheet and choose <b>Finance ▸ Connect phone app…</b>. Type the code it shows.</p>
+    <input type="text" id="pairCode" placeholder="ABCD-EFGH" maxlength="9" autocapitalize="characters" autocorrect="off" spellcheck="false"
+      autocomplete="one-time-code" aria-label="Connection code">
+    <button type="submit" class="btn primary" id="pairBtn">Connect</button>
+    <p class="connect-msg" id="connectMsg" role="alert"></p>
+  </form>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var qa = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- state ----------
+  var S = {
+    lists: null, dash: null, today: '', minDate: '', periods: [],
+    view: 'dash', ctype: 'Expense', allModes: false, drill: null,
+    tx: { scope: 'period', type: '', head: '', mode: '', q: '' }, txData: null, detail: -1, listScroll: 0,
+    list: 'Expense', openSub: null, editing: null, chart: null,
+  };
+
+  // ---------- server ----------
+  // Each request is posted to the Apps Script web app (window.CASHBOOK_API, set in config.js) with the session token
+  // this phone got when it was connected. The preview stand-in provides google.script.run instead.
+  var API = String(window.CASHBOOK_API || '');
+  var SESSION = 'cashbook.session';
+  var local = !!(window.google && google.script && google.script.run);
+  function stored(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+  function post(body) {
+    if (!/^https:\/\/script\.google\.com\//.test(API)) return Promise.reject(new Error('The app is not set up yet: put the script address in config.js.'));
+    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.text(); }, function () { throw new Error('No connection. Check your internet and try again.'); })
+      .then(function (t) {
+        var o; try { o = JSON.parse(t); } catch (e) { throw new Error('Your cash book did not answer properly. Try again in a moment.'); }
+        if (!o.ok) { var err = new Error(o.error || 'Something went wrong.'); err.auth = !!o.auth; throw err; }
+        return o.result;
+      });
+  }
+  var pending = 0;
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    pending++; $('busy').classList.add('on');
+    var p = local ? new Promise(function (resolve, reject) {
+      var run = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      run[fn].apply(run, args);
+    }) : post({ fn: fn, args: args, session: stored(SESSION) });
+    return p.then(function (r) { done(); return r; }, function (e) {
+      done();
+      if (e && e.auth) { store(SESSION, null); showConnect(e.message); }
+      throw e;
+    });
+  }
+  function done() { if (--pending <= 0) { pending = 0; $('busy').classList.remove('on'); } }
+  function fail(e) { if (e && e.auth) return; toast((e && e.message) || String(e), true); }
+
+  // ---------- formatting ----------
+  var inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  function money(n) { return inr.format(Number(n) || 0); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toDate(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null; }
+  function fmtDate(iso, opts) { var d = toDate(iso); return d ? d.toLocaleDateString('en-IN', opts || { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
+  function pct(a, b) { return b ? Math.round(a / b * 100) : 0; }
+  function isCash(m) { return String(m || '').trim().toLowerCase() === 'cash'; }
+
+  // Sheet head colours are pastel fills; the app uses the same hue at a muted, mid lightness.
+  function hexHsl(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return null;
+    var n = parseInt(m[1], 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), h = 0, s = 0, l = (max + min) / 2, d = max - min;
+    if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return { h: h, s: s, l: l };
+  }
+  function hsl(h, s, l) { return 'hsl(' + Math.round(h) + ' ' + Math.round(s * 100) + '% ' + Math.round(l * 100) + '%)'; }
+  function headColor(head, shade) {
+    var x = hexHsl(S.lists && S.lists.colors[String(head).toLowerCase()]);
+    if (!x) return shade == null ? '#9AA3AD' : hsl(210, .1, .45 + shade * .3);
+    // sub-heads step from deep to light within the head's hue
+    return hsl(x.h, .42, shade == null ? .56 : .34 + shade * .4);
+  }
+
+  var toastT;
+  function toast(msg, err) {
+    var t = $('toast'); t.textContent = msg; t.classList.toggle('err', !!err); t.classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('on'); }, err ? 5200 : 2600);
+  }
+
+  // ---------- navigation ----------
+  var NAV_OF = { dash: 'dash', entry: 'entry', txns: 'txns', detail: 'txns', cats: 'cats' };
+  function show(view) {
+    if (S.view === 'txns' && view === 'detail') S.listScroll = window.scrollY;
+    S.view = view;
+    ['dash', 'entry', 'txns', 'detail', 'cats'].forEach(function (v) { $('v-' + v).classList.toggle('hidden', v !== view); });
+    qa('.nav button[data-view]').forEach(function (b) { var on = b.dataset.view === NAV_OF[view]; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
+    var withPeriod = view === 'dash' || view === 'txns';
+    $('period').classList.toggle('hidden', !withPeriod);
+    $('custom').classList.toggle('hidden', !withPeriod || !S.dash || S.dash.period !== 'Custom');
+    $('top').classList.toggle('hidden', view === 'detail');
+    if (view === 'entry') { mountForm('page'); if (!$('date').value) $('date').value = S.today; }
+    if (view === 'cats') renderCats();
+    if (view === 'txns') { window.scrollTo(0, S.listScroll || 0); return; }
+    window.scrollTo(0, 0);
+  }
+  qa('.nav button[data-view]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.dataset.view;
+      if (v === 'txns') { S.listScroll = 0; show('txns'); loadTxns(); } else show(v);
+    });
+  });
+
+  // ---------- period ----------
+  var PERIOD_LABEL = { 'This Week': 'This week', 'This Month': 'This month', 'This Year': 'This year', 'Custom': 'Custom dates' };
+  function renderPeriods() {
+    var d = S.dash;
+    $('period').innerHTML = S.periods.map(function (p) {
+      return '<option value="' + esc(p) + '"' + (d && d.period === p ? ' selected' : '') + '>' + esc(PERIOD_LABEL[p] || p) + '</option>';
+    }).join('');
+    var custom = d && d.period === 'Custom';
+    $('custom').classList.toggle('hidden', !custom || !(S.view === 'dash' || S.view === 'txns'));
+    if (custom) { $('cStart').value = d.customStart || d.start; $('cEnd').value = d.customEnd || ''; }
+  }
+  function afterPeriod(dash) { S.dash = dash; S.drill = null; renderDash(); if (S.view === 'txns') loadTxns(); }
+  $('period').addEventListener('change', function () {
+    var p = this.value;
+    if (p === 'Custom') {
+      // show the date row straight away; the period changes when the dates are applied
+      $('custom').classList.remove('hidden'); $('cStart').value = S.dash.start; $('cEnd').value = ''; $('cStart').focus();
+      return;
+    }
+    call('waSetPeriod', p).then(afterPeriod).catch(fail);
+  });
+  $('cApply').addEventListener('click', function () {
+    if (!$('cStart').value) { toast('Choose the first date.', true); return; }
+    call('waSetPeriod', 'Custom', $('cStart').value, $('cEnd').value).then(afterPeriod).catch(fail);
+  });
+
+  // ---------- dashboard ----------
+  function renderDash() {
+    var d = S.dash; if (!d) return;
+    renderPeriods();
+    var range = fmtDate(d.start, { day: 'numeric', month: 'short' }) + ' – ' + fmtDate(d.end);
+    $('topSub').textContent = range; $('sideSub').textContent = range;
+    $('when').textContent = 'Cash for ' + range;
+    $('eOpen').textContent = money(d.opening);
+    $('eIn').textContent = money(d.cashIn);
+    $('eOut').textContent = money(d.cashOut);
+    $('eClose').textContent = money(d.closing);
+    $('eCount').textContent = d.count + (d.count === 1 ? ' entry' : ' entries');
+    $('eAudit').textContent = d.lastAudit ? 'Last audit ' + fmtDate(d.lastAudit) : 'Not audited yet';
+    $('recov').innerHTML = [
+      ['Reimbursements due from companies', d.reimbPending],
+      ['Money lent, to recover', d.recoverPending],
+      ['Money borrowed, to repay', d.creditorPending],
+    ].map(function (r) { return '<li><span>' + r[0] + '</span><span class="num">' + money(r[1]) + '</span></li>'; }).join('');
+    $('mediaSec').classList.toggle('hidden', !d.media.length);
+    $('media').innerHTML = d.media.map(function (m) { return '<li><span>' + esc(m.mode) + '</span><span class="num">' + money(m.total) + '</span></li>'; }).join('');
+    renderChart();
+  }
+  qa('.eq button.term').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var g = b.dataset.go;
+      S.tx = { scope: 'period', type: g === 'all' ? '' : g, head: '', mode: g === 'all' ? '' : 'Cash', q: '' };
+      syncTxControls(); S.listScroll = 0; show('txns'); loadTxns();
+    });
+  });
+  // quick amount bar: straight to Quick entry with the amount filled in
+  function quickGo() {
+    var v = $('qAmt').value.trim();
+    show('entry');
+    if (v) $('amt').value = v.replace(/[^\d.]/g, '');
+    $('qAmt').value = '';
+    setTimeout(function () { (v ? $('head') : $('amt')).focus(); }, 0);
+  }
+  $('qGo').addEventListener('click', quickGo);
+  $('qAmt').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); quickGo(); } });
+
+  // ---------- chart: heads, then one head's sub-heads ----------
+  qa('[data-ctype]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      S.ctype = b.dataset.ctype; S.drill = null;
+      qa('[data-ctype]').forEach(function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+      renderChart();
+    });
+  });
+  $('allModes').addEventListener('click', function () { S.allModes = !S.allModes; this.setAttribute('aria-checked', S.allModes); renderChart(); });
+  $('back').addEventListener('click', function () { S.drill = null; renderChart(); });
+
+  function chartItems() {
+    var heads = (S.dash.heads[S.allModes ? 'all' : 'cash'] || {})[S.ctype] || [];
+    if (!S.drill) return heads.map(function (h) { return { label: h.head, total: h.total, color: headColor(h.head), drill: true }; });
+    var h = heads.filter(function (x) { return x.head.toLowerCase() === S.drill.toLowerCase(); })[0];
+    if (!h) { S.drill = null; return chartItems(); }
+    var n = h.subs.length;
+    return h.subs.map(function (s, i) { return { label: s.sub || '(no sub-head)', total: s.total, color: headColor(h.head, n > 1 ? i / (n - 1) : .35), drill: false }; });
+  }
+  function renderChart() {
+    var items = chartItems(), total = items.reduce(function (a, x) { return a + x.total; }, 0);
+    var spent = S.ctype === 'Expense';
+    $('chartTitle').textContent = spent ? 'Where it went' : 'Where it came from';
+    $('crumb').classList.toggle('hidden', !S.drill);
+    $('crumbName').textContent = S.drill || '';
+    $('cK').textContent = S.drill ? S.drill : (spent ? 'Spent' : 'Received');
+    $('cV').textContent = money(total);
+    var note = $('drillNote');
+    if (S.drill && items.length === 1 && items[0].label === '(no sub-head)') { note.textContent = S.drill + ' has no sub-heads for this period.'; note.classList.remove('hidden'); }
+    else note.classList.add('hidden');
+
+    var lg = $('legend');
+    if (!items.length) {
+      lg.innerHTML = '<li class="empty">' + (spent ? 'Nothing spent' : 'Nothing received') + (S.allModes ? '' : ' in cash') + ' this period.</li>';
+    } else {
+      lg.innerHTML = items.map(function (x, i) {
+        var p = pct(x.total, total);
+        return '<li class="' + (x.drill ? '' : 'nodrill') + '"><button type="button" data-i="' + i + '"' + (x.drill ? ' aria-label="Show sub-heads of ' + esc(x.label) + '"' : ' tabindex="-1"') + '>' +
+          '<span class="dot" style="background:' + x.color + '"></span><span class="name">' + esc(x.label) + '</span>' +
+          '<span class="amt num">' + money(x.total) + '<small>' + p + '%</small></span>' +
+          '<span class="bar"><i style="width:' + Math.max(p, 1) + '%;background:' + x.color + '"></i></span></button></li>';
+      }).join('');
+      qa('#legend button[data-i]').forEach(function (b) {
+        b.addEventListener('click', function () { var x = items[+b.dataset.i]; if (x && x.drill) { S.drill = x.label; renderChart(); } });
+      });
+    }
+    drawPie(items);
+  }
+  function drawPie(items) {
+    if (typeof Chart === 'undefined') return;
+    var data = items.length ? items.map(function (x) { return x.total; }) : [1];
+    var colors = items.length ? items.map(function (x) { return x.color; }) : ['#E3E7EC'];
+    var labels = items.length ? items.map(function (x) { return x.label; }) : [''];
+    if (S.chart) S.chart.destroy();
+    S.chart = new Chart($('pie'), {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2, hoverOffset: 6 }] },
+      options: {
+        cutout: '62%', responsive: true, maintainAspectRatio: true,
+        animation: reduceMotion ? false : { animateRotate: true, animateScale: !!S.drill, duration: 380, easing: 'easeOutCubic' },
+        plugins: { legend: { display: false }, tooltip: { enabled: !!items.length, callbacks: { label: function (c) { return ' ' + c.label + ': ' + money(c.raw); } } } },
+        onClick: function (evt, els) {
+          if (!els.length || !items.length) return;
+          var x = items[els[0].index]; if (x.drill) { S.drill = x.label; renderChart(); }
+        },
+        onHover: function (evt, els) { evt.native.target.style.cursor = els.length && items[els[0].index] && items[els[0].index].drill ? 'pointer' : 'default'; },
+      },
+    });
+  }
+
+  // ---------- transactions ----------
+  qa('[data-scope]').forEach(function (b) { b.addEventListener('click', function () { S.tx.scope = b.dataset.scope; syncTxControls(); loadTxns(); }); });
+  qa('[data-ftype]').forEach(function (b) { b.addEventListener('click', function () { S.tx.type = b.dataset.ftype; syncTxControls(); loadTxns(); }); });
+  $('fHead').addEventListener('change', function () { S.tx.head = this.value; loadTxns(); });
+  $('fMode').addEventListener('change', function () { S.tx.mode = this.value; loadTxns(); });
+  var qT;
+  $('q').addEventListener('input', function () { S.tx.q = this.value; clearTimeout(qT); qT = setTimeout(loadTxns, 300); });
+
+  function syncTxControls() {
+    qa('[data-scope]').forEach(function (b) { b.classList.toggle('on', b.dataset.scope === S.tx.scope); });
+    qa('[data-ftype]').forEach(function (b) { b.classList.toggle('on', b.dataset.ftype === S.tx.type); });
+    var heads = [];
+    ['Expense', 'Income'].forEach(function (t) { (S.lists.groups[t] || []).forEach(function (g) { if (heads.indexOf(g.head) < 0) heads.push(g.head); }); });
+    $('fHead').innerHTML = '<option value="">All heads</option>' + heads.map(function (h) { return '<option' + (h === S.tx.head ? ' selected' : '') + '>' + esc(h) + '</option>'; }).join('');
+    $('fMode').innerHTML = '<option value="">All modes</option>' + S.lists.modes.map(function (m) { return '<option' + (m === S.tx.mode ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('');
+    $('q').value = S.tx.q;
+  }
+  function loadTxns() {
+    var f = { type: S.tx.type, head: S.tx.head, mode: S.tx.mode, q: S.tx.q };
+    if (S.tx.scope === 'period' && S.dash) { f.from = S.dash.start; f.to = S.dash.end; }
+    return call('waTxns', f).then(function (r) { S.txData = r; renderTxns(); return r; }).catch(fail);
+  }
+  var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9.5 6 6 6-6 6"/></svg>';
+  function sign(t) { return (t.type === 'Income' ? '+' : '−') + money(t.amt); }
+  function renderTxns() {
+    var r = S.txData, box = $('days');
+    if (!r.rows.length) { box.innerHTML = '<div class="sec empty">No transactions ' + (S.tx.scope === 'period' ? 'in this period' : 'match') + '.</div>'; return; }
+    var days = [], byDay = {};
+    r.rows.forEach(function (t, i) { t._i = i; if (!byDay[t.date]) { byDay[t.date] = []; days.push(t.date); } byDay[t.date].push(t); });
+    box.innerHTML = days.map(function (day) {
+      var list = byDay[day], net = 0;
+      list.forEach(function (t) { if (isCash(t.mode)) net += t.type === 'Income' ? t.amt : -t.amt; });
+      var netTxt = net === 0 ? '' : '<span class="net num" style="color:' + (net > 0 ? 'var(--green)' : 'var(--ink-soft)') + '">' + (net > 0 ? '+' : '−') + money(Math.abs(net)) + ' cash</span>';
+      return '<div class="day"><h3><span>' + esc(day ? fmtDate(day, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No date') + '</span>' + netTxt + '</h3>' +
+        list.map(function (t) {
+          var hs = esc(t.head || '(no head)') + (t.sub ? ' › ' + esc(t.sub) : '');
+          return '<button class="entry" type="button" data-i="' + t._i + '">' +
+            '<span class="stripe" style="background:' + headColor(t.head) + '"></span>' +
+            '<span class="main"><span class="desc">' + esc(t.desc || t.head || '(no description)') + '</span>' +
+            '<span class="cat"><span class="hs">' + hs + '</span>' + (isCash(t.mode) ? '' : '<span class="mode-chip">' + esc(t.mode) + '</span>') +
+            (t.locked ? '<span class="lock" title="Audited">' + LOCK + '</span>' : '') + '</span></span>' +
+            '<span class="amt' + (t.type === 'Income' ? ' in' : '') + '">' + sign(t) + '</span>' + CHEV + '</button>';
+        }).join('') + '</div>';
+    }).join('') + (r.total > r.rows.length ? '<div class="more">Showing the latest ' + r.rows.length + ' of ' + r.total + '. Search or filter to narrow down.</div>' : '');
+    qa('#days .entry').forEach(function (b) { b.addEventListener('click', function () { openDetail(+b.dataset.i); }); });
+  }
+
+  // ---------- one transaction: detail card with previous / next ----------
+  function openDetail(i, dir) { S.detail = i; renderDetail(dir); show('detail'); }
+  function renderDetail(dir) {
+    var rows = S.txData.rows, t = rows[S.detail];
+    if (!t) { show('txns'); return; }
+    var g = (S.lists.groups[t.type] || []).filter(function (x) { return x.head === t.head; })[0];
+    var f = function (k, v) { return '<div class="fld"><dt>' + k + '</dt><dd>' + v + '</dd></div>'; };
+    $('dList').innerHTML =
+      f('Description', t.desc ? esc(t.desc) : '<span class="muted">—</span>') +
+      f('Date', esc(fmtDate(t.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))) +
+      f('Type', t.type === 'Income' ? 'Received' : 'Spent') +
+      f('Head', '<span class="dot" style="background:' + headColor(t.head) + '"></span>' + esc(t.head || '—')) +
+      f('Sub-head', t.sub ? esc(t.sub) : '<span class="muted">—</span>') +
+      f('Mode of payment', esc(t.mode) + (isCash(t.mode) ? '' : '<span class="hint">Not in the cash tally</span>')) +
+      f('Amount', '<span class="big' + (t.type === 'Income' ? ' in' : '') + '">' + sign(t) + '</span>') +
+      ((g && g.reimb) || t.company ? f('Reimbursable', esc(t.company || 'Yes')) : '') +
+      (t.locked ? f('Audited', '<span class="lock">' + LOCK + '</span> In an audited period, so it can\'t be changed.') : '');
+    $('dEdit').classList.toggle('hidden', !!t.locked);
+    $('dDel').classList.toggle('hidden', !!t.locked);
+    $('dPrev').disabled = S.detail <= 0;
+    $('dNext').disabled = S.detail >= rows.length - 1;
+    $('dPos').textContent = (S.detail + 1) + ' of ' + rows.length;
+    var card = $('dCard');
+    card.classList.remove('slide-l', 'slide-r');
+    if (dir && !reduceMotion) { void card.offsetWidth; card.classList.add(dir > 0 ? 'slide-l' : 'slide-r'); }
+  }
+  function step(d) {
+    var i = S.detail + d;
+    if (!S.txData || i < 0 || i >= S.txData.rows.length) return;
+    S.detail = i; renderDetail(d);
+  }
+  $('dPrev').addEventListener('click', function () { step(-1); });
+  $('dNext').addEventListener('click', function () { step(1); });
+  $('dBack').addEventListener('click', function () { show('txns'); });
+  document.addEventListener('keydown', function (e) {
+    if (S.view !== 'detail' || $('sheet').classList.contains('on') || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft') step(-1);
+    if (e.key === 'ArrowRight') step(1);
+  });
+  (function swipe() {
+    var x0 = null, y0 = null;
+    $('dCard').addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    $('dCard').addEventListener('touchend', function (e) {
+      if (x0 == null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+    });
+  })();
+  $('dEdit').addEventListener('click', function () { var t = S.txData.rows[S.detail]; if (t && !t.locked) openEdit(t); });
+  $('dDel').addEventListener('click', function () {
+    var t = S.txData.rows[S.detail]; if (!t || t.locked) return;
+    if (!window.confirm('Delete this transaction? ' + t.head + ' ' + money(t.amt) + ' on ' + fmtDate(t.date) + '.')) return;
+    var at = S.detail;
+    call('waDelete', t.row, { date: t.date, type: t.type, head: t.head, amt: t.amt }).then(function (r) {
+      S.dash = r.dash; renderDash(); toast('Deleted: ' + t.head + ' ' + money(t.amt));
+      return loadTxns().then(function () {
+        if (!S.txData || !S.txData.rows.length) { show('txns'); return; }
+        S.detail = Math.min(at, S.txData.rows.length - 1); renderDetail();
+      });
+    }).catch(fail);
+  });
+
+  // ---------- the entry form (Quick entry page, or the edit sheet) ----------
+  var form = { type: 'Expense' };
+  function mountForm(where) {
+    var f = $('entryForm');
+    var inSheet = where === 'sheet';
+    (inSheet ? $('sheet') : $('entryHome')).appendChild(f);
+    qa('.sheet-title', f).forEach(function (x) { x.classList.toggle('hidden', !inSheet); });
+    qa('.page-title', f).forEach(function (x) { x.classList.toggle('hidden', inSheet); });
+    if (!inSheet && S.editing) { S.editing = null; resetForm(); }
+  }
+  function headsOf(type) { return (S.lists.groups[type] || []); }
+  function headObj(type, name) { return headsOf(type).filter(function (g) { return g.head === name; })[0]; }
+  function fillHeads(sel) {
+    $('head').innerHTML = '<option value="">Choose a head</option>' + headsOf(form.type).map(function (g) { return '<option' + (g.head === sel ? ' selected' : '') + '>' + esc(g.head) + '</option>'; }).join('');
+  }
+  function fillSubs(sel) {
+    var g = headObj(form.type, $('head').value), subs = g ? g.subs : [];
+    $('sub').innerHTML = '<option value="">' + (subs.length ? 'Choose a sub-head' : 'No sub-heads') + '</option>' + subs.map(function (s) { return '<option' + (s === sel ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+    $('sub').disabled = !subs.length;
+    $('subField').classList.toggle('hidden', !g);
+  }
+  function fillCompanies(sel) {
+    $('company').innerHTML = '<option value="">Choose a company</option>' + S.lists.companies.map(function (c) { return '<option' + (c === sel ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
+  }
+  function fillModes(sel) {
+    $('mode').innerHTML = S.lists.modes.map(function (m) { return '<option' + ((sel ? m === sel : isCash(m)) ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('');
+  }
+  function syncReimb() { var g = headObj(form.type, $('head').value); $('reimbField').classList.toggle('hidden', !(g && g.reimb)); }
+  function setType(t, head, sub) {
+    form.type = t;
+    qa('#typeSeg button').forEach(function (b) { var on = b.dataset.type === t; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+    fillHeads(head || ''); fillSubs(sub || ''); syncReimb();
+  }
+  qa('#typeSeg button').forEach(function (b) { b.addEventListener('click', function () { setType(b.dataset.type); }); });
+  $('head').addEventListener('change', function () { fillSubs(''); syncReimb(); });
+  function resetForm() {
+    setType('Expense'); fillModes(''); fillCompanies('');
+    $('amt').value = ''; $('desc').value = ''; $('date').value = S.today; $('date').min = S.minDate || '';
+    qa('.inline-add', $('entryForm')).forEach(function (x) { x.classList.add('hidden'); });
+  }
+  function openEdit(t) {
+    S.editing = t;
+    mountForm('sheet');
+    $('sheetTitle').textContent = 'Edit transaction';
+    setType(t.type, t.head, t.sub); fillModes(t.mode); fillCompanies(t.company); syncReimb();
+    $('amt').value = t.amt; $('desc').value = t.desc; $('date').value = t.date; $('date').min = S.minDate || '';
+    qa('.inline-add', $('entryForm')).forEach(function (x) { x.classList.add('hidden'); });
+    openSheet('sheet');
+    setTimeout(function () { $('amt').focus(); }, reduceMotion ? 0 : 260);
+  }
+  function openSheet(id) {
+    $('scrim').classList.remove('hidden'); $(id).classList.remove('hidden');
+    requestAnimationFrame(function () { $('scrim').classList.add('on'); $(id).classList.add('on'); });
+  }
+  function closeSheet(id) {
+    $('scrim').classList.remove('on'); $(id).classList.remove('on');
+    setTimeout(function () {
+      $(id).classList.add('hidden'); if (!qa('.sheet.on').length) $('scrim').classList.add('hidden');
+      if (id === 'sheet') mountForm('page');
+    }, reduceMotion ? 0 : 230);
+  }
+  $('closeSheet').addEventListener('click', function () { closeSheet('sheet'); });
+  $('scrim').addEventListener('click', function () { if ($('sheet').classList.contains('on')) closeSheet('sheet'); if ($('confirm').classList.contains('on')) closeSheet('confirm'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('sheet').classList.contains('on')) closeSheet('sheet');
+    if ($('confirm').classList.contains('on')) closeSheet('confirm');
+  });
+
+  // Enter moves to the next field; on the last one it saves
+  var ORDER = ['amt', 'head', 'sub', 'desc', 'company', 'mode', 'date'];
+  $('entryForm').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.target.tagName === 'BUTTON' || e.target.closest('.inline-add')) return;
+    e.preventDefault();
+    var i = ORDER.indexOf(e.target.id);
+    for (var j = i + 1; j < ORDER.length; j++) {
+      var el = $(ORDER[j]);
+      if (el && !el.disabled && el.offsetParent !== null) { el.focus(); return; }
+    }
+    $('saveBtn').click();
+  });
+
+  $('entryForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var head = $('head').value, g = headObj(form.type, head);
+    var amt = Number(String($('amt').value).replace(/[^\d.]/g, ''));
+    if (!(amt > 0)) { toast('Enter an amount greater than 0.', true); $('amt').focus(); return; }
+    if (!head) { toast('Choose a head.', true); $('head').focus(); return; }
+    if (g && g.subs.length && !$('sub').value) { toast('Choose a sub-head for ' + head + '.', true); $('sub').focus(); return; }
+    if (g && g.reimb && !$('company').value) { toast('Choose the company — ' + head + ' is a reimbursable head.', true); $('company').focus(); return; }
+    var entry = { date: $('date').value, mode: $('mode').value, type: form.type, head: head, sub: $('sub').value, desc: $('desc').value,
+      amt: amt, company: g && g.reimb ? $('company').value : '' };
+    var t = S.editing;
+    $('saveBtn').disabled = true;
+    var p = t ? call('waUpdate', t.row, { date: t.date, type: t.type, head: t.head, amt: t.amt }, entry) : call('waAdd', entry);
+    p.then(function (r) {
+      S.dash = r.dash; renderDash();
+      if (t) {
+        toast('Updated: ' + head + ' ' + money(amt));
+        closeSheet('sheet');
+        // stay on the same transaction (found again by its sheet row)
+        return loadTxns().then(function () {
+          var i = S.txData ? S.txData.rows.findIndex(function (x) { return x.row === t.row; }) : -1;
+          if (i >= 0) { S.detail = i; renderDetail(); } else show('txns');
+        });
+      }
+      // quick entry: keep type, head, sub-head, mode and date for the next one
+      toast('Saved: ' + head + ' ' + money(amt));
+      $('amt').value = ''; $('desc').value = ''; $('amt').focus();
+    }).catch(fail).then(function () { $('saveBtn').disabled = false; });
+  });
+
+  // "+" beside head, sub-head and company
+  qa('#entryForm .plus').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var box = $({ head: 'newHeadBox', sub: 'newSubBox', company: 'newCompanyBox' }[b.dataset.new]);
+      box.classList.toggle('hidden'); if (!box.classList.contains('hidden')) box.querySelector('input').focus();
+    });
+  });
+  function inlineAdd(boxId, run) {
+    var box = $(boxId), input = box.querySelector('input'), btn = box.querySelector('button');
+    var go = function () {
+      var name = input.value.trim(); if (!name) { input.focus(); return; }
+      btn.disabled = true;
+      run(name).then(function (lists) { S.lists = lists; input.value = ''; box.classList.add('hidden'); toast('Added ' + name); })
+        .catch(fail).then(function () { btn.disabled = false; });
+    };
+    btn.addEventListener('click', go);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  }
+  inlineAdd('newHeadBox', function (name) { return call('waAddHead', form.type, name).then(function (l) { S.lists = l; fillHeads(name); fillSubs(''); syncReimb(); return l; }); });
+  inlineAdd('newSubBox', function (name) {
+    var head = $('head').value;
+    if (!head) return Promise.reject(new Error('Choose the head first.'));
+    return call('waAddSub', form.type, head, name).then(function (l) { S.lists = l; fillSubs(name); return l; });
+  });
+  inlineAdd('newCompanyBox', function (name) { return call('waAddHead', 'Company', name).then(function (l) { S.lists = l; fillCompanies(name); return l; }); });
+
+  // ---------- categories ----------
+  var TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+  var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
+  qa('[data-list]').forEach(function (b) {
+    b.addEventListener('click', function () { S.list = b.dataset.list; S.openSub = null; qa('[data-list]').forEach(function (x) { x.classList.toggle('on', x === b); }); renderCats(); });
+  });
+  function renderCats() {
+    var L = S.lists, t = S.list, box = $('hlist');
+    $('newHead').placeholder = t === 'Mode' ? 'New payment mode, e.g. HDFC card' : t === 'Company' ? 'New company' : 'New head';
+    if (t === 'Mode' || t === 'Company') {
+      var items = t === 'Mode' ? L.modes : L.companies;
+      box.innerHTML = items.length ? items.map(function (m) {
+        var builtin = t === 'Mode' && isCash(m);
+        return '<li class="hitem"><div class="hline"><span class="nm">' + esc(m) + '</span>' +
+          (builtin ? '<span class="builtin">Built-in</span>' : '<button class="icon-btn del" data-del="' + esc(m) + '" aria-label="Delete ' + esc(m) + '">' + TRASH + '</button>') + '</div></li>';
+      }).join('') : '<li class="empty">No companies yet. Add the ones that reimburse you.</li>';
+      qa('#hlist [data-del]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (!window.confirm('Delete "' + b.dataset.del + '" from the list? Existing transactions keep it.')) return;
+          call('waDeleteHead', t, b.dataset.del, '').then(afterLists).catch(fail);
+        });
+      });
+      return;
+    }
+    var hs = L.groups[t] || [];
+    box.innerHTML = hs.map(function (g, i) {
+      var sys = L.system.indexOf(g.head.toLowerCase()) >= 0, open = S.openSub === g.head;
+      return '<li class="hitem"><div class="hline"><span class="dot" style="background:' + headColor(g.head) + '"></span><span class="nm">' + esc(g.head) + '</span>' +
+        '<button class="switch" role="switch" aria-checked="' + !!g.reimb + '" data-reimb="' + i + '"><span class="knob"></span>Reimbursable</button>' +
+        '<button class="icon-btn" data-plus="' + i + '" aria-expanded="' + open + '" aria-label="Add a sub-head under ' + esc(g.head) + '">' + PLUS + '</button>' +
+        (sys ? '<span class="builtin" title="Used for money lent and borrowed">Built-in</span>' : '<button class="icon-btn del" data-delhead="' + i + '" aria-label="Delete ' + esc(g.head) + '">' + TRASH + '</button>') + '</div>' +
+        '<ul class="subs">' + g.subs.map(function (s) {
+          return '<li><span>' + esc(s) + '</span><button class="icon-btn del" data-delsub="' + i + '" data-sub="' + esc(s) + '" aria-label="Delete ' + esc(s) + '">' + TRASH + '</button></li>';
+        }).join('') +
+        (open ? '<li class="inline-add"><input type="text" placeholder="New sub-head under ' + esc(g.head) + '" data-addsub="' + i + '" aria-label="New sub-head under ' + esc(g.head) + '"><button class="btn ink" data-addsubbtn="' + i + '">Add</button></li>' : '') +
+        '</ul></li>';
+    }).join('');
+    qa('#hlist [data-reimb]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = hs[+b.dataset.reimb];
+        call('waSetReimb', t, g.head, !g.reimb).then(function (l) { afterLists(l); toast(g.head + (g.reimb ? ' is no longer reimbursable' : ' is now reimbursable')); }).catch(fail);
+      });
+    });
+    qa('#hlist [data-plus]').forEach(function (b) {
+      b.addEventListener('click', function () { var h = hs[+b.dataset.plus].head; S.openSub = S.openSub === h ? null : h; renderCats(); });
+    });
+    qa('#hlist [data-delhead]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = hs[+b.dataset.delhead];
+        if (!window.confirm('Delete the head "' + g.head + '"' + (g.subs.length ? ' and its sub-heads' : '') + '? Existing transactions keep their head.')) return;
+        call('waDeleteHead', t, g.head, '').then(afterLists).catch(fail);
+      });
+    });
+    qa('#hlist [data-delsub]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = hs[+b.dataset.delsub];
+        if (!window.confirm('Delete the sub-head "' + b.dataset.sub + '" under ' + g.head + '?')) return;
+        call('waDeleteHead', t, g.head, b.dataset.sub).then(afterLists).catch(fail);
+      });
+    });
+    var input = document.querySelector('#hlist [data-addsub]');
+    if (input) {
+      var btn = document.querySelector('#hlist [data-addsubbtn]'), g = hs[+input.dataset.addsub];
+      var go = function () {
+        var name = input.value.trim(); if (!name) { input.focus(); return; }
+        btn.disabled = true;
+        call('waAddSub', t, g.head, name).then(function (l) { S.openSub = null; afterLists(l); toast('Added ' + name); }).catch(fail).then(function () { btn.disabled = false; });
+      };
+      btn.addEventListener('click', go);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') go();
+        if (e.key === 'Escape') { e.stopPropagation(); S.openSub = null; renderCats(); }
+      });
+      input.focus();
+    }
+  }
+  function afterLists(l) { S.lists = l; renderCats(); }
+  function addHead() {
+    var name = $('newHead').value.trim(); if (!name) { $('newHead').focus(); return; }
+    call('waAddHead', S.list, name).then(function (l) { $('newHead').value = ''; afterLists(l); toast('Added ' + name); }).catch(fail);
+  }
+  $('addHead').addEventListener('click', addHead);
+  $('newHead').addEventListener('keydown', function (e) { if (e.key === 'Enter') addHead(); });
+
+  // ---------- statement and audit ----------
+  $('pdfBtn').addEventListener('click', function () {
+    var b = this; b.disabled = true; $('actResult').textContent = 'Making the PDF…';
+    call('waPdf').then(function (r) {
+      $('actResult').innerHTML = 'Saved to Drive ▸ ' + esc(r.folder) + ' (' + r.pages + ' page' + (r.pages > 1 ? 's' : '') + '). ' +
+        '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">Open PDF</a>';
+    }).catch(function (e) { $('actResult').textContent = ''; fail(e); }).then(function () { b.disabled = false; });
+  });
+  $('auditBtn').addEventListener('click', function () {
+    call('waAuditPreview').then(function (text) { $('confirmText').textContent = text; openSheet('confirm'); }).catch(fail);
+  });
+  $('confirmNo').addEventListener('click', function () { closeSheet('confirm'); });
+  $('confirmYes').addEventListener('click', function () {
+    var b = this; b.disabled = true;
+    call('waAudit').then(function (r) {
+      closeSheet('confirm'); S.dash = r.dash; S.minDate = r.minDate; $('date').min = S.minDate || ''; renderDash();
+      $('actResult').textContent = r.message.split('\n').pop().replace(/^✔\s*/, '');
+      toast('Sent for audit');
+    }).catch(fail).then(function () { b.disabled = false; });
+  });
+
+  // ---------- connecting this phone ----------
+  function showConnect(msg) {
+    $('connect').classList.remove('hidden');
+    $('connectMsg').textContent = msg && !/not connected/.test(msg) ? msg : '';
+    setTimeout(function () { $('pairCode').focus(); }, 50);
+  }
+  $('pairCode').addEventListener('input', function () {
+    var v = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    this.value = v.length > 4 ? v.slice(0, 4) + '-' + v.slice(4) : v;
+  });
+  $('connectForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var code = $('pairCode').value.replace(/[^A-Z0-9]/gi, '');
+    if (code.length !== 8) { $('connectMsg').textContent = 'The code has 8 letters and numbers.'; return; }
+    var b = $('pairBtn'); b.disabled = true; b.textContent = 'Connecting…'; $('connectMsg').textContent = '';
+    post({ fn: 'connect', code: code }).then(function (r) {
+      store(SESSION, r.session);
+      $('connect').classList.add('hidden'); $('pairCode').value = '';
+      start();
+    }).catch(function (e) { $('connectMsg').textContent = e.message; })
+      .then(function () { b.disabled = false; b.textContent = 'Connect'; });
+  });
+  $('unpairBtn').addEventListener('click', function () {
+    if (!window.confirm('Disconnect this phone? You will need a new code from the sheet to connect again.')) return;
+    store(SESSION, null); showConnect('');
+  });
+
+  // ---------- start ----------
+  function start() {
+    $('topSub').textContent = 'Loading…';
+    call('waInit').then(function (r) {
+      S.lists = { groups: r.groups, colors: r.colors, system: r.system, modes: r.modes, companies: r.companies };
+      S.dash = r.dash; S.today = r.today; S.minDate = r.minDate; S.periods = r.periods;
+      syncTxControls(); resetForm(); renderDash();
+    }).catch(function (e) { if (e && e.auth) return; $('topSub').textContent = 'Could not load'; fail(e); });
+  }
+  if (local || stored(SESSION)) start(); else showConnect('');
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
+</body>
+</html>
