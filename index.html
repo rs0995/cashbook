@@ -101,8 +101,15 @@ main { padding: 0 0 24px; max-width: 1180px; width: 100%; min-width: 0; margin: 
 .quickbar .btn { height: var(--ctl-h); min-height: var(--ctl-h); padding: 0 18px; }
 
 /* donut + legend */
-.chartbox { position: relative; width: min(260px, 72vw); aspect-ratio: 1; margin: 6px auto 4px; }
+.chartbox { position: relative; width: min(260px, 72vw); aspect-ratio: 1; margin: 6px auto 20px; }
 .chartbox canvas { position: absolute; inset: 0; }
+/* slice value box: the chart's own tooltip look, drawn outside the ring so it never covers the centre total */
+.pie-tip { position: absolute; z-index: 3; background: rgba(0, 0, 0, .8); color: #fff; border-radius: 6px; padding: 6px 8px; font: 13px/1.4 Arial, sans-serif;
+  white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s; }
+.pie-tip.on { opacity: 1; }
+.pie-tip b { display: block; margin-bottom: 4px; }
+.pie-tip span { display: flex; align-items: center; gap: 6px; }
+.pie-tip i { width: 12px; height: 12px; border: 2px solid #fff; box-sizing: border-box; flex: none; }
 .chartbox .center { position: absolute; inset: 22%; display: grid; place-content: center; text-align: center; pointer-events: none; }
 .chartbox .center .k { font-size: 13px; color: var(--muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto; }
 .chartbox .center .v { font-family: var(--num); font-stretch: 112%; font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
@@ -129,6 +136,8 @@ main { padding: 0 0 24px; max-width: 1180px; width: 100%; min-width: 0; margin: 
 .rows { list-style: none; margin: 0; padding: 0; }
 .rows li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--mist); align-items: baseline; }
 .rows li:last-child { border-bottom: 0; }
+#mediaSec { padding: 14px 16px 6px; }
+#mediaSec h2 { margin-bottom: 2px; }
 .rows .num { font-weight: 600; }
 
 /* controls */
@@ -189,6 +198,49 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 .lock { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); }
 .lock svg { width: 13px; height: 13px; }
 .more { text-align: center; color: var(--muted); font-size: 13px; padding: 14px; }
+
+/* ledgers */
+.lg-top { margin-bottom: 0; padding-bottom: 12px; }
+.lg-top .note { margin-top: 2px; }
+.lg-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.lg-sum div { border-radius: var(--r-ctl); padding: 9px 12px; }
+.lg-sum .cr { background: var(--green-soft); }
+.lg-sum .dr { background: var(--red-soft); }
+.lg-sum span { display: block; font-size: 12px; color: var(--muted); }
+.lg-sum b { font-family: var(--num); font-stretch: 112%; font-size: 17px; font-variant-numeric: tabular-nums; }
+.lg-sum .cr b { color: var(--green); }
+.lg-sum .dr b { color: var(--red); }
+.lg { position: relative; margin: 12px 12px 0; background: var(--paper); border-radius: var(--r-sheet); overflow: hidden; }
+.lg-row { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; column-gap: 12px;
+  align-items: center; cursor: pointer; }
+.lg-row:hover { background: #FAFBFC; }
+.lg-row:focus-visible { outline: 3px solid var(--marigold); outline-offset: -3px; }
+.lg-row .chev { color: #A6AEB7; width: 18px; height: 18px; }
+/* head: name, net on the right */
+.lg-row.head { position: relative; padding: 15px 12px 15px 20px; }
+.lg-row.head:not(:last-child) { border-bottom: 1px solid var(--mist); }
+/* the head's colour: a short tab beside its name, the same size on every head */
+.lg-row.head::before { content: ''; position: absolute; left: 0; top: 50%; margin-top: -11px; width: 4px; height: 22px; border-radius: 0 3px 3px 0; background: var(--tab, var(--rule)); }
+.lg-nm { min-width: 0; }
+.lg-nm .t { display: block; font-family: var(--num); font-stretch: 108%; font-weight: 700; font-size: 16px; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-net { white-space: nowrap; }
+.lg-net .lg-amt { font-size: 18px; }
+/* sub-heads: a swatch in a shade of the head's colour, as on the dashboard chart */
+.lg-subs { padding-bottom: 4px; }
+.lg-subs .lg-row { position: relative; grid-template-columns: 10px minmax(0, 1fr) auto 18px; padding: 11px 12px 11px 20px; font-size: 14px; }
+.lg-subs .lg-row + .lg-row::after { content: ''; position: absolute; left: 42px; right: 12px; top: 0; height: 1px; background: var(--mist); }
+.lg-sw { width: 10px; height: 10px; border-radius: 3px; }
+.lg-subs .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+.lg-subs .t.none { font-style: italic; color: var(--muted); }
+.lg-subs .lg-amt { font-size: 14px; }
+.lg-amt { font-family: var(--num); font-stretch: 112%; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lg-amt.cr { color: var(--green); }
+.lg-amt.dr { color: var(--red); }
+.lg-amt.zero { color: #A6AEB7; font-weight: 600; }
+.ledger-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 999px; padding: 4px 4px 4px 14px; font-weight: 700; font-size: 14px; }
+.ledger-chip button { border: 0; background: var(--mist); border-radius: 999px; width: 30px; height: 30px; color: var(--ink); }
 
 /* transaction detail card */
 .dbar { display: flex; align-items: center; gap: 6px; padding: 10px 12px 4px; }
@@ -299,7 +351,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   <nav class="nav" aria-label="Sections">
     <div class="brand brand-side">Cash Book<small id="sideSub"></small></div>
     <button data-view="dash" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z"/></svg><span>Dashboard</span></button>
-    <button data-view="entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>Quick entry</span></button>
+    <button data-view="ledger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 7.5h6M9 11h6"/></svg><span>Ledger</span></button>
     <button data-view="txns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5"/></svg><span>Transactions</span></button>
     <button data-view="cats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h13"/></svg><span>Categories</span></button>
   </nav>
@@ -322,8 +374,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
           <div class="when" id="when"></div>
           <div class="eq">
             <span class="op"></span><button class="term" data-go="all"><span>Opening cash</span><span class="num" id="eOpen">—</span></button>
-            <span class="op">+</span><button class="term" data-go="Income"><span>Cash in</span><span class="num" id="eIn">—</span></button>
-            <span class="op">−</span><button class="term" data-go="Expense"><span>Cash out</span><span class="num" id="eOut">—</span></button>
+            <span class="op">+</span><button class="term" data-go="Credit"><span>Cash in</span><span class="num" id="eIn">—</span></button>
+            <span class="op">−</span><button class="term" data-go="Debit"><span>Cash out</span><span class="num" id="eOut">—</span></button>
             <div class="equals"><span class="lbl">Cash in hand</span><span class="closing" id="eClose">—</span></div>
           </div>
           <div class="foot"><span id="eCount"></span><span id="eAudit"></span></div>
@@ -344,23 +396,23 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
         <div class="sec" id="mediaSec">
           <h2>Paid by bank and card</h2>
           <ul class="rows" id="media"></ul>
-          <p class="note">These don't change your cash in hand.</p>
         </div>
       </div>
 
       <div class="col-b">
         <div class="sec">
           <div class="head-row">
-            <h2 id="chartTitle">Where it went</h2>
+            <h2 id="chartTitle">Debits by head</h2>
             <div class="seg" role="radiogroup" aria-label="Show">
-              <button data-ctype="Expense" class="on" role="radio" aria-checked="true">Spent</button>
-              <button data-ctype="Income" role="radio" aria-checked="false">Received</button>
+              <button data-ctype="Credit" role="radio" aria-checked="false">Credit</button>
+              <button data-ctype="Debit" class="on" role="radio" aria-checked="true">Debit</button>
             </div>
           </div>
           <div class="crumb hidden" id="crumb"><button id="back" aria-label="Back to all heads"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m14.5 6-6 6 6 6"/></svg>All heads</button><strong id="crumbName"></strong></div>
           <div class="chartbox" id="chartbox">
             <canvas id="pie" aria-label="Pie chart of heads" role="img"></canvas>
             <div class="center"><div class="k" id="cK">Total</div><div class="v" id="cV">—</div></div>
+            <div class="pie-tip" id="pieTip" aria-hidden="true"></div>
           </div>
           <button class="switch" role="switch" aria-checked="false" id="allModes"><span class="knob"></span>Include bank and card payments</button>
           <ul class="legend" id="legend"></ul>
@@ -377,8 +429,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
           <h2 class="page-title">Quick entry</h2>
           <div class="field">
             <div class="seg" role="radiogroup" aria-label="Type" id="typeSeg" style="width:100%">
-              <button type="button" data-type="Expense" class="on" style="flex:1">Spent</button>
-              <button type="button" data-type="Income" style="flex:1">Received</button>
+              <button type="button" data-type="Credit" style="flex:1">Credit</button>
+              <button type="button" data-type="Debit" class="on" style="flex:1">Debit</button>
             </div>
           </div>
           <div class="field">
@@ -413,16 +465,32 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       </div>
     </section>
 
+    <!-- Ledgers: every head with its net, sub-heads under it -->
+    <section id="v-ledger" class="hidden">
+      <div class="sec lg-top">
+        <div class="head-row">
+          <h2>Ledgers</h2>
+          <div class="seg" role="radiogroup" aria-label="Dates">
+            <button data-lscope="all" class="on" role="radio" aria-checked="true">All time</button><button data-lscope="period" role="radio" aria-checked="false">This period</button>
+          </div>
+        </div>
+        <p class="note" id="lNote"></p>
+        <div class="lg-sum" id="lSum"></div>
+      </div>
+      <div id="ledgers"></div>
+    </section>
+
     <!-- Transactions -->
     <section id="v-txns" class="hidden">
       <div class="filters">
+        <div class="ledger-chip hidden" id="ledgerChip"><span id="ledgerChipName"></span><button type="button" id="ledgerChipX" aria-label="Show the whole head">✕</button></div>
         <input type="search" id="q" placeholder="Search head, description, company" aria-label="Search transactions">
         <div class="row">
           <div class="seg" role="radiogroup" aria-label="Time">
             <button data-scope="period" class="on">This period</button><button data-scope="all">All dates</button>
           </div>
           <div class="seg" role="radiogroup" aria-label="Type">
-            <button data-ftype="" class="on">All</button><button data-ftype="Income">In</button><button data-ftype="Expense">Out</button>
+            <button data-ftype="" class="on">All</button><button data-ftype="Credit">Credit</button><button data-ftype="Debit">Debit</button>
           </div>
         </div>
         <div class="row">
@@ -455,7 +523,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
         <div class="head-row">
           <h2>Categories</h2>
           <div class="seg" role="radiogroup" aria-label="List">
-            <button data-list="Expense" class="on">Spent</button><button data-list="Income">Received</button><button data-list="Mode">Modes</button><button data-list="Company">Companies</button>
+            <button data-list="Credit">Credit</button><button data-list="Debit" class="on">Debit</button><button data-list="Mode">Modes</button><button data-list="Company">Companies</button>
           </div>
         </div>
         <div class="inline-add" style="margin:0 0 10px">
@@ -519,9 +587,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   // ---------- state ----------
   var S = {
     lists: null, dash: null, today: '', minDate: '', periods: [],
-    view: 'dash', ctype: 'Expense', allModes: false, drill: null,
-    tx: { scope: 'period', type: '', head: '', mode: '', q: '' }, txData: null, detail: -1, listScroll: 0,
-    list: 'Expense', openSub: null, editing: null, chart: null,
+    view: 'dash', ctype: 'Debit', allModes: false, drill: null,
+    tx: { scope: 'period', type: '', head: '', sub: null, mode: '', q: '' }, txData: null, detail: -1, listScroll: 0,
+    lscope: 'all', ledgers: null,
+    list: 'Debit', openSub: null, editing: null, chart: null,
   };
 
   // ---------- server ----------
@@ -591,13 +660,13 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   }
 
   // ---------- navigation ----------
-  var NAV_OF = { dash: 'dash', entry: 'entry', txns: 'txns', detail: 'txns', cats: 'cats' };
+  var NAV_OF = { dash: 'dash', entry: 'dash', ledger: 'ledger', txns: 'txns', detail: 'txns', cats: 'cats' }; // Quick entry opens from the Dashboard
   function show(view) {
     if (S.view === 'txns' && view === 'detail') S.listScroll = window.scrollY;
     S.view = view;
-    ['dash', 'entry', 'txns', 'detail', 'cats'].forEach(function (v) { $('v-' + v).classList.toggle('hidden', v !== view); });
+    ['dash', 'entry', 'ledger', 'txns', 'detail', 'cats'].forEach(function (v) { $('v-' + v).classList.toggle('hidden', v !== view); });
     qa('.nav button[data-view]').forEach(function (b) { var on = b.dataset.view === NAV_OF[view]; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
-    var withPeriod = view === 'dash' || view === 'txns';
+    var withPeriod = view === 'dash' || view === 'txns' || view === 'ledger';
     $('period').classList.toggle('hidden', !withPeriod);
     $('custom').classList.toggle('hidden', !withPeriod || !S.dash || S.dash.period !== 'Custom');
     $('top').classList.toggle('hidden', view === 'detail');
@@ -609,7 +678,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   qa('.nav button[data-view]').forEach(function (b) {
     b.addEventListener('click', function () {
       var v = b.dataset.view;
-      if (v === 'txns') { S.listScroll = 0; show('txns'); loadTxns(); } else show(v);
+      if (v === 'txns') { S.listScroll = 0; show('txns'); loadTxns(); } else if (v === 'ledger') { show('ledger'); loadLedgers(); } else show(v);
     });
   });
 
@@ -621,10 +690,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       return '<option value="' + esc(p) + '"' + (d && d.period === p ? ' selected' : '') + '>' + esc(PERIOD_LABEL[p] || p) + '</option>';
     }).join('');
     var custom = d && d.period === 'Custom';
-    $('custom').classList.toggle('hidden', !custom || !(S.view === 'dash' || S.view === 'txns'));
+    $('custom').classList.toggle('hidden', !custom || !(S.view === 'dash' || S.view === 'txns' || S.view === 'ledger'));
     if (custom) { $('cStart').value = d.customStart || d.start; $('cEnd').value = d.customEnd || ''; }
   }
-  function afterPeriod(dash) { S.dash = dash; S.drill = null; renderDash(); if (S.view === 'txns') loadTxns(); }
+  function afterPeriod(dash) { S.dash = dash; S.drill = null; renderDash(); if (S.view === 'txns') loadTxns(); if (S.view === 'ledger') loadLedgers(); }
   $('period').addEventListener('change', function () {
     var p = this.value;
     if (p === 'Custom') {
@@ -692,6 +761,12 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 
   function chartItems() {
     var heads = (S.dash.heads[S.allModes ? 'all' : 'cash'] || {})[S.ctype] || [];
+    // Only the user's own spending or income: Parties (money lent or borrowed) and reimbursable heads
+    // (paid for a company, to be paid back) are left out; they show under "Still to settle" instead.
+    var system = (S.lists && S.lists.system) || [];
+    var reimb = ((S.lists && S.lists.groups[S.ctype]) || []).filter(function (g) { return g.reimb; })
+      .map(function (g) { return String(g.head).toLowerCase(); });
+    heads = heads.filter(function (h) { var k = String(h.head).toLowerCase(); return system.indexOf(k) < 0 && reimb.indexOf(k) < 0; });
     if (!S.drill) return heads.map(function (h) { return { label: h.head, total: h.total, color: headColor(h.head), drill: true }; });
     var h = heads.filter(function (x) { return x.head.toLowerCase() === S.drill.toLowerCase(); })[0];
     if (!h) { S.drill = null; return chartItems(); }
@@ -700,11 +775,11 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   }
   function renderChart() {
     var items = chartItems(), total = items.reduce(function (a, x) { return a + x.total; }, 0);
-    var spent = S.ctype === 'Expense';
-    $('chartTitle').textContent = spent ? 'Where it went' : 'Where it came from';
+    var spent = S.ctype === 'Debit';
+    $('chartTitle').textContent = spent ? 'Debits by head' : 'Credits by head';
     $('crumb').classList.toggle('hidden', !S.drill);
     $('crumbName').textContent = S.drill || '';
-    $('cK').textContent = S.drill ? S.drill : (spent ? 'Spent' : 'Received');
+    $('cK').textContent = S.drill ? S.drill : (spent ? 'Debit' : 'Credit');
     $('cV').textContent = money(total);
     var note = $('drillNote');
     if (S.drill && items.length === 1 && items[0].label === '(no sub-head)') { note.textContent = S.drill + ' has no sub-heads for this period.'; note.classList.remove('hidden'); }
@@ -712,7 +787,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 
     var lg = $('legend');
     if (!items.length) {
-      lg.innerHTML = '<li class="empty">' + (spent ? 'Nothing spent' : 'Nothing received') + (S.allModes ? '' : ' in cash') + ' this period.</li>';
+      lg.innerHTML = '<li class="empty">' + (spent ? 'No debits' : 'No credits') + (S.allModes ? '' : ' in cash') + ' this period.</li>';
     } else {
       lg.innerHTML = items.map(function (x, i) {
         var p = pct(x.total, total);
@@ -733,26 +808,103 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     var colors = items.length ? items.map(function (x) { return x.color; }) : ['#E3E7EC'];
     var labels = items.length ? items.map(function (x) { return x.label; }) : [''];
     if (S.chart) S.chart.destroy();
+    $('pieTip').classList.remove('on');
+    // Tapping a slice only shows its value (beside the ring, clear of the centre text); the rows below open sub-heads.
     S.chart = new Chart($('pie'), {
       type: 'doughnut',
       data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2, hoverOffset: 6 }] },
       options: {
-        cutout: '62%', responsive: true, maintainAspectRatio: true,
+        cutout: '62%', responsive: true, maintainAspectRatio: true, layout: { padding: 8 },
         animation: reduceMotion ? false : { animateRotate: true, animateScale: !!S.drill, duration: 380, easing: 'easeOutCubic' },
-        plugins: { legend: { display: false }, tooltip: { enabled: !!items.length, callbacks: { label: function (c) { return ' ' + c.label + ': ' + money(c.raw); } } } },
-        onClick: function (evt, els) {
-          if (!els.length || !items.length) return;
-          var x = items[els[0].index]; if (x.drill) { S.drill = x.label; renderChart(); }
-        },
-        onHover: function (evt, els) { evt.native.target.style.cursor = els.length && items[els[0].index] && items[els[0].index].drill ? 'pointer' : 'default'; },
+        plugins: { legend: { display: false }, tooltip: { enabled: false, external: items.length ? pieTip : undefined } },
+        onHover: function (evt, els) { evt.native.target.style.cursor = els.length && items.length ? 'pointer' : 'default'; },
       },
     });
+  }
+  function pieTip(c) {
+    var tip = $('pieTip'), m = c.tooltip, dp = m && m.dataPoints && m.dataPoints[0];
+    if (!dp || m.opacity === 0) { tip.classList.remove('on'); return; }
+    var arc = dp.element, a = (arc.startAngle + arc.endAngle) / 2, r = arc.outerRadius + 10;
+    var cos = Math.cos(a), sin = Math.sin(a);
+    tip.innerHTML = '<b>' + esc(dp.label) + '</b><span><i style="background:' + arc.options.backgroundColor + '"></i>' +
+      esc(dp.label) + ': ' + money(dp.raw) + '</span>';
+    tip.style.left = (arc.x + cos * r) + 'px'; tip.style.top = (arc.y + sin * r) + 'px';
+    tip.style.transform = 'translate(' + (Math.abs(cos) < .35 ? '-50%' : cos > 0 ? '0' : '-100%') + ',' + (Math.abs(sin) < .35 ? '-50%' : sin > 0 ? '0' : '-100%') + ')';
+    tip.classList.add('on');
+    // keep it inside the card, and never over the ring: when there is no room beside the slice (narrow phones),
+    // put it above or below the ring instead
+    var cv = c.chart.canvas.getBoundingClientRect(), card = tip.closest('.sec').getBoundingClientRect();
+    var cx = cv.left + arc.x, cy = cv.top + arc.y, R = arc.outerRadius + 6;
+    var fit = function () {
+      var box = tip.getBoundingClientRect(), dx = 0;
+      if (box.left < card.left + 8) dx = card.left + 8 - box.left; else if (box.right > card.right - 8) dx = card.right - 8 - box.right;
+      if (dx) { tip.style.left = (parseFloat(tip.style.left) + dx) + 'px'; box = tip.getBoundingClientRect(); }
+      var nx = Math.max(box.left, Math.min(cx, box.right)), ny = Math.max(box.top, Math.min(cy, box.bottom));
+      return Math.hypot(nx - cx, ny - cy) >= R;
+    };
+    if (!fit()) {
+      tip.style.left = (arc.x + cos * r) + 'px';
+      tip.style.top = (sin > 0 ? arc.y + R : arc.y - R) + 'px';
+      tip.style.transform = 'translate(-50%,' + (sin > 0 ? '0' : '-100%') + ')';
+      fit();
+    }
+  }
+
+  // ---------- ledgers: each head's net (credit − debit), its sub-heads under it ----------
+  qa('[data-lscope]').forEach(function (b) { b.addEventListener('click', function () { S.lscope = b.dataset.lscope; loadLedgers(); }); });
+  function loadLedgers() {
+    qa('[data-lscope]').forEach(function (b) { var on = b.dataset.lscope === S.lscope; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+    return call('waLedgers', S.lscope).then(function (r) { S.ledgers = r; renderLedgers(); }).catch(fail);
+  }
+  function lgSide(n) { return n > 0 ? 'cr' : n < 0 ? 'dr' : 'zero'; }
+  // green for a credit balance, red for a debit balance
+  function lgAmt(n) { return '<span class="lg-amt ' + lgSide(n) + '">' + money(Math.abs(n)) + '</span>'; }
+  function lgLabel(name, n) { return name + ': ' + (n > 0 ? 'credit ' : n < 0 ? 'debit ' : '') + money(Math.abs(n)); }
+  // sub-heads step from deep to light in the head's hue, as on the dashboard chart
+  function lgShade(h, j) { var n = h.subs.length; return headColor(h.head, n > 1 ? j / (n - 1) * .8 : .2); }
+  function renderLedgers() {
+    var hs = (S.ledgers && S.ledgers.heads) || [], box = $('ledgers'), d = S.dash;
+    $('lNote').textContent = S.lscope === 'period' && d ? fmtDate(d.start, { day: 'numeric', month: 'short' }) + ' – ' + fmtDate(d.end) : 'Every entry, all dates';
+    var cr = 0, dr = 0; hs.forEach(function (h) { cr += h.credit; dr += h.debit; });
+    $('lSum').innerHTML = '<div class="cr"><span>Total credit</span><b>' + money(cr) + '</b></div><div class="dr"><span>Total debit</span><b>' + money(dr) + '</b></div>';
+    // only ledgers with entries: a head or sub-head with nothing in it is left out
+    var used = function (x) { return x.credit || x.debit; };
+    if (!hs.some(used)) {
+      box.innerHTML = '<div class="sec empty">' + (S.lscope === 'period' ? 'No entries this period.' : 'No entries yet. Add one from the Dashboard.') + '</div>'; return;
+    }
+    box.innerHTML = hs.map(function (h, i) {
+      if (!used(h)) return '';
+      var subs = h.subs.filter(used);
+      return '<div class="lg" style="--tab:' + headColor(h.head) + '">' +
+        '<button type="button" class="lg-row head" data-h="' + i + '" aria-label="' + esc(lgLabel(h.head, h.net)) + '">' +
+        '<span class="lg-nm"><span class="t">' + esc(h.head) + '</span></span>' +
+        '<span class="lg-net">' + lgAmt(h.net) + '</span>' +
+        CHEV + '</button>' +
+        (subs.length ? '<div class="lg-subs">' + h.subs.map(function (x, j) {
+          if (!used(x)) return '';
+          return '<button type="button" class="lg-row" data-h="' + i + '" data-s="' + j + '" aria-label="' + esc(lgLabel(x.sub || 'No sub-head', x.net)) + '">' +
+            '<span class="lg-sw" style="background:' + lgShade(h, j) + '"></span>' +
+            '<span class="t' + (x.sub ? '' : ' none') + '">' + esc(x.sub || 'No sub-head') + '</span>' + lgAmt(x.net) + CHEV + '</button>';
+        }).join('') + '</div>' : '') + '</div>';
+    }).join('');
+    qa('#ledgers .lg-row').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var h = hs[+b.dataset.h], x = b.dataset.s != null ? h.subs[+b.dataset.s] : null;
+        openLedger(h.head, x ? x.sub : null);
+      });
+    });
+  }
+  // a ledger's entries: the Transactions list for that head (and sub-head), same dates as the ledger
+  function openLedger(head, sub) {
+    S.tx = { scope: S.lscope === 'period' ? 'period' : 'all', type: '', head: head, sub: sub, mode: '', q: '' };
+    syncTxControls(); S.listScroll = 0; show('txns'); loadTxns();
   }
 
   // ---------- transactions ----------
   qa('[data-scope]').forEach(function (b) { b.addEventListener('click', function () { S.tx.scope = b.dataset.scope; syncTxControls(); loadTxns(); }); });
   qa('[data-ftype]').forEach(function (b) { b.addEventListener('click', function () { S.tx.type = b.dataset.ftype; syncTxControls(); loadTxns(); }); });
-  $('fHead').addEventListener('change', function () { S.tx.head = this.value; loadTxns(); });
+  $('fHead').addEventListener('change', function () { S.tx.head = this.value; S.tx.sub = null; syncTxControls(); loadTxns(); });
+  $('ledgerChipX').addEventListener('click', function () { S.tx.sub = null; syncTxControls(); loadTxns(); });
   $('fMode').addEventListener('change', function () { S.tx.mode = this.value; loadTxns(); });
   var qT;
   $('q').addEventListener('input', function () { S.tx.q = this.value; clearTimeout(qT); qT = setTimeout(loadTxns, 300); });
@@ -761,19 +913,24 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     qa('[data-scope]').forEach(function (b) { b.classList.toggle('on', b.dataset.scope === S.tx.scope); });
     qa('[data-ftype]').forEach(function (b) { b.classList.toggle('on', b.dataset.ftype === S.tx.type); });
     var heads = [];
-    ['Expense', 'Income'].forEach(function (t) { (S.lists.groups[t] || []).forEach(function (g) { if (heads.indexOf(g.head) < 0) heads.push(g.head); }); });
+    ['Debit', 'Credit'].forEach(function (t) { (S.lists.groups[t] || []).forEach(function (g) { if (heads.indexOf(g.head) < 0) heads.push(g.head); }); });
     $('fHead').innerHTML = '<option value="">All heads</option>' + heads.map(function (h) { return '<option' + (h === S.tx.head ? ' selected' : '') + '>' + esc(h) + '</option>'; }).join('');
     $('fMode').innerHTML = '<option value="">All modes</option>' + S.lists.modes.map(function (m) { return '<option' + (m === S.tx.mode ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('');
     $('q').value = S.tx.q;
+    // opened from a sub-head ledger: show which one, with a way back to the whole head
+    var sub = S.tx.sub != null && S.tx.head;
+    $('ledgerChip').classList.toggle('hidden', !sub);
+    if (sub) $('ledgerChipName').textContent = S.tx.head + ' ▸ ' + (S.tx.sub || '(no sub-head)');
   }
   function loadTxns() {
     var f = { type: S.tx.type, head: S.tx.head, mode: S.tx.mode, q: S.tx.q };
+    if (S.tx.sub != null && S.tx.head) f.sub = S.tx.sub;
     if (S.tx.scope === 'period' && S.dash) { f.from = S.dash.start; f.to = S.dash.end; }
     return call('waTxns', f).then(function (r) { S.txData = r; renderTxns(); return r; }).catch(fail);
   }
   var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9.5 6 6 6-6 6"/></svg>';
-  function sign(t) { return (t.type === 'Income' ? '+' : '−') + money(t.amt); }
+  function sign(t) { return (t.type === 'Credit' ? '+' : '−') + money(t.amt); }
   function renderTxns() {
     var r = S.txData, box = $('days');
     if (!r.rows.length) { box.innerHTML = '<div class="sec empty">No transactions ' + (S.tx.scope === 'period' ? 'in this period' : 'match') + '.</div>'; return; }
@@ -781,7 +938,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     r.rows.forEach(function (t, i) { t._i = i; if (!byDay[t.date]) { byDay[t.date] = []; days.push(t.date); } byDay[t.date].push(t); });
     box.innerHTML = days.map(function (day) {
       var list = byDay[day], net = 0;
-      list.forEach(function (t) { if (isCash(t.mode)) net += t.type === 'Income' ? t.amt : -t.amt; });
+      list.forEach(function (t) { if (isCash(t.mode)) net += t.type === 'Credit' ? t.amt : -t.amt; });
       var netTxt = net === 0 ? '' : '<span class="net num" style="color:' + (net > 0 ? 'var(--green)' : 'var(--ink-soft)') + '">' + (net > 0 ? '+' : '−') + money(Math.abs(net)) + ' cash</span>';
       return '<div class="day"><h3><span>' + esc(day ? fmtDate(day, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No date') + '</span>' + netTxt + '</h3>' +
         list.map(function (t) {
@@ -791,7 +948,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
             '<span class="main"><span class="desc">' + esc(t.desc || t.head || '(no description)') + '</span>' +
             '<span class="cat"><span class="hs">' + hs + '</span>' + (isCash(t.mode) ? '' : '<span class="mode-chip">' + esc(t.mode) + '</span>') +
             (t.locked ? '<span class="lock" title="Audited">' + LOCK + '</span>' : '') + '</span></span>' +
-            '<span class="amt' + (t.type === 'Income' ? ' in' : '') + '">' + sign(t) + '</span>' + CHEV + '</button>';
+            '<span class="amt' + (t.type === 'Credit' ? ' in' : '') + '">' + sign(t) + '</span>' + CHEV + '</button>';
         }).join('') + '</div>';
     }).join('') + (r.total > r.rows.length ? '<div class="more">Showing the latest ' + r.rows.length + ' of ' + r.total + '. Search or filter to narrow down.</div>' : '');
     qa('#days .entry').forEach(function (b) { b.addEventListener('click', function () { openDetail(+b.dataset.i); }); });
@@ -807,11 +964,11 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     $('dList').innerHTML =
       f('Description', t.desc ? esc(t.desc) : '<span class="muted">—</span>') +
       f('Date', esc(fmtDate(t.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))) +
-      f('Type', t.type === 'Income' ? 'Received' : 'Spent') +
+      f('Type', t.type === 'Credit' ? 'Credit (money in)' : 'Debit (money out)') +
       f('Head', '<span class="dot" style="background:' + headColor(t.head) + '"></span>' + esc(t.head || '—')) +
       f('Sub-head', t.sub ? esc(t.sub) : '<span class="muted">—</span>') +
       f('Mode of payment', esc(t.mode) + (isCash(t.mode) ? '' : '<span class="hint">Not in the cash tally</span>')) +
-      f('Amount', '<span class="big' + (t.type === 'Income' ? ' in' : '') + '">' + sign(t) + '</span>') +
+      f('Amount', '<span class="big' + (t.type === 'Credit' ? ' in' : '') + '">' + sign(t) + '</span>') +
       ((g && g.reimb) || t.company ? f('Reimbursable', esc(t.company || 'Yes')) : '') +
       (t.locked ? f('Audited', '<span class="lock">' + LOCK + '</span> In an audited period, so it can\'t be changed.') : '');
     $('dEdit').classList.toggle('hidden', !!t.locked);
@@ -860,7 +1017,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   });
 
   // ---------- the entry form (Quick entry page, or the edit sheet) ----------
-  var form = { type: 'Expense' };
+  var form = { type: 'Debit' };
   function mountForm(where) {
     var f = $('entryForm');
     var inSheet = where === 'sheet';
@@ -895,7 +1052,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   qa('#typeSeg button').forEach(function (b) { b.addEventListener('click', function () { setType(b.dataset.type); }); });
   $('head').addEventListener('change', function () { fillSubs(''); syncReimb(); });
   function resetForm() {
-    setType('Expense'); fillModes(''); fillCompanies('');
+    setType('Debit'); fillModes(''); fillCompanies('');
     $('amt').value = ''; $('desc').value = ''; $('date').value = S.today; $('date').min = S.minDate || '';
     qa('.inline-add', $('entryForm')).forEach(function (x) { x.classList.add('hidden'); });
   }
