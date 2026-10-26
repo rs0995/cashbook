@@ -165,7 +165,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 .btn.quiet { background: var(--mist); color: var(--ink); }
 .btn[disabled] { opacity: .55; cursor: default; }
 .amount-in { font-family: var(--num); font-stretch: 112%; font-size: 30px !important; font-weight: 700; min-height: 58px !important; }
-.reimb-note { padding: 10px 12px; border-radius: var(--r-ctl); background: var(--peach); color: var(--marigold-deep); font-weight: 700; font-size: 14px; }
+.recov-note { padding: 10px 12px; border-radius: var(--r-ctl); background: var(--peach); color: var(--marigold-deep); font-weight: 700; font-size: 14px; }
 .form-foot { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
 .form-foot .btn.primary { flex: 1; }
 
@@ -451,10 +451,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
             <label for="desc">Description</label>
             <input type="text" id="desc" placeholder="What was it for?">
           </div>
-          <div class="field" id="reimbField">
-            <div class="reimb-note">Reimbursable head — choose the company</div>
-            <div class="with-plus"><select id="company" aria-label="Company"></select><button type="button" class="plus" data-new="company" aria-label="Add a company">+</button></div>
-            <div class="inline-add hidden" id="newCompanyBox"><input type="text" placeholder="New company name" aria-label="New company name"><button type="button" class="btn ink">Add</button></div>
+          <div class="field hidden" id="recovField">
+            <div class="recov-note">Recoverable head: this money is to be recovered or paid back</div>
           </div>
           <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field" style="margin:0"><label for="mode">Paid by</label><select id="mode"></select></div>
@@ -484,7 +482,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     <section id="v-txns" class="hidden">
       <div class="filters">
         <div class="ledger-chip hidden" id="ledgerChip"><span id="ledgerChipName"></span><button type="button" id="ledgerChipX" aria-label="Show the whole head">✕</button></div>
-        <input type="search" id="q" placeholder="Search head, description, company" aria-label="Search transactions">
+        <input type="search" id="q" placeholder="Search head, description" aria-label="Search transactions">
         <div class="row">
           <div class="seg" role="radiogroup" aria-label="Time">
             <button data-scope="period" class="on">This period</button><button data-scope="all">All dates</button>
@@ -523,7 +521,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
         <div class="head-row">
           <h2>Categories</h2>
           <div class="seg" role="radiogroup" aria-label="List">
-            <button data-list="Credit">Credit</button><button data-list="Debit" class="on">Debit</button><button data-list="Mode">Modes</button><button data-list="Company">Companies</button>
+            <button data-list="Credit">Credit</button><button data-list="Debit" class="on">Debit</button><button data-list="Mode">Modes</button>
           </div>
         </div>
         <div class="inline-add" style="margin:0 0 10px">
@@ -722,9 +720,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     $('eCount').textContent = d.count + (d.count === 1 ? ' entry' : ' entries');
     $('eAudit').textContent = d.lastAudit ? 'Last audit ' + fmtDate(d.lastAudit) : 'Not audited yet';
     $('recov').innerHTML = [
-      ['Reimbursements due from companies', d.reimbPending],
-      ['Money lent, to recover', d.recoverPending],
-      ['Money borrowed, to repay', d.creditorPending],
+      ['To recover', d.recoverPending],
+      ['To pay back', d.payPending],
     ].map(function (r) { return '<li><span>' + r[0] + '</span><span class="num">' + money(r[1]) + '</span></li>'; }).join('');
     $('mediaSec').classList.toggle('hidden', !d.media.length);
     $('media').innerHTML = d.media.map(function (m) { return '<li><span>' + esc(m.mode) + '</span><span class="num">' + money(m.total) + '</span></li>'; }).join('');
@@ -761,12 +758,9 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 
   function chartItems() {
     var heads = (S.dash.heads[S.allModes ? 'all' : 'cash'] || {})[S.ctype] || [];
-    // Only the user's own spending or income: Parties (money lent or borrowed) and reimbursable heads
-    // (paid for a company, to be paid back) are left out; they show under "Still to settle" instead.
-    var system = (S.lists && S.lists.system) || [];
-    var reimb = ((S.lists && S.lists.groups[S.ctype]) || []).filter(function (g) { return g.reimb; })
-      .map(function (g) { return String(g.head).toLowerCase(); });
-    heads = heads.filter(function (h) { var k = String(h.head).toLowerCase(); return system.indexOf(k) < 0 && reimb.indexOf(k) < 0; });
+    // Only the user's own spending or income: recoverable heads (money to be recovered or paid back) are left out
+    // of the pie and the bars; they show under "Still to settle" instead.
+    heads = heads.filter(function (h) { return !isRecov(h.head); });
     if (!S.drill) return heads.map(function (h) { return { label: h.head, total: h.total, color: headColor(h.head), drill: true }; });
     var h = heads.filter(function (x) { return x.head.toLowerCase() === S.drill.toLowerCase(); })[0];
     if (!h) { S.drill = null; return chartItems(); }
@@ -959,7 +953,6 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   function renderDetail(dir) {
     var rows = S.txData.rows, t = rows[S.detail];
     if (!t) { show('txns'); return; }
-    var g = (S.lists.groups[t.type] || []).filter(function (x) { return x.head === t.head; })[0];
     var f = function (k, v) { return '<div class="fld"><dt>' + k + '</dt><dd>' + v + '</dd></div>'; };
     $('dList').innerHTML =
       f('Description', t.desc ? esc(t.desc) : '<span class="muted">—</span>') +
@@ -969,7 +962,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       f('Sub-head', t.sub ? esc(t.sub) : '<span class="muted">—</span>') +
       f('Mode of payment', esc(t.mode) + (isCash(t.mode) ? '' : '<span class="hint">Not in the cash tally</span>')) +
       f('Amount', '<span class="big' + (t.type === 'Credit' ? ' in' : '') + '">' + sign(t) + '</span>') +
-      ((g && g.reimb) || t.company ? f('Reimbursable', esc(t.company || 'Yes')) : '') +
+      (isRecov(t.head) ? f('Recoverable', 'Yes: to be recovered or paid back') : '') +
       (t.locked ? f('Audited', '<span class="lock">' + LOCK + '</span> In an audited period, so it can\'t be changed.') : '');
     $('dEdit').classList.toggle('hidden', !!t.locked);
     $('dDel').classList.toggle('hidden', !!t.locked);
@@ -1037,22 +1030,24 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     $('sub').disabled = !subs.length;
     $('subField').classList.toggle('hidden', !g);
   }
-  function fillCompanies(sel) {
-    $('company').innerHTML = '<option value="">Choose a company</option>' + S.lists.companies.map(function (c) { return '<option' + (c === sel ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('');
-  }
   function fillModes(sel) {
     $('mode').innerHTML = S.lists.modes.map(function (m) { return '<option' + ((sel ? m === sel : isCash(m)) ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('');
   }
-  function syncReimb() { var g = headObj(form.type, $('head').value); $('reimbField').classList.toggle('hidden', !(g && g.reimb)); }
+  // a head is recoverable when it is marked under either type (a name under both is one ledger)
+  function isRecov(head) {
+    var k = String(head || '').toLowerCase(), G = (S.lists && S.lists.groups) || {};
+    return !!k && ['Credit', 'Debit'].some(function (t) { return (G[t] || []).some(function (g) { return g.recov && g.head.toLowerCase() === k; }); });
+  }
+  function syncRecov() { $('recovField').classList.toggle('hidden', !isRecov($('head').value)); }
   function setType(t, head, sub) {
     form.type = t;
     qa('#typeSeg button').forEach(function (b) { var on = b.dataset.type === t; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
-    fillHeads(head || ''); fillSubs(sub || ''); syncReimb();
+    fillHeads(head || ''); fillSubs(sub || ''); syncRecov();
   }
   qa('#typeSeg button').forEach(function (b) { b.addEventListener('click', function () { setType(b.dataset.type); }); });
-  $('head').addEventListener('change', function () { fillSubs(''); syncReimb(); });
+  $('head').addEventListener('change', function () { fillSubs(''); syncRecov(); });
   function resetForm() {
-    setType('Debit'); fillModes(''); fillCompanies('');
+    setType('Debit'); fillModes('');
     $('amt').value = ''; $('desc').value = ''; $('date').value = S.today; $('date').min = S.minDate || '';
     qa('.inline-add', $('entryForm')).forEach(function (x) { x.classList.add('hidden'); });
   }
@@ -1060,7 +1055,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     S.editing = t;
     mountForm('sheet');
     $('sheetTitle').textContent = 'Edit transaction';
-    setType(t.type, t.head, t.sub); fillModes(t.mode); fillCompanies(t.company); syncReimb();
+    setType(t.type, t.head, t.sub); fillModes(t.mode); syncRecov();
     $('amt').value = t.amt; $('desc').value = t.desc; $('date').value = t.date; $('date').min = S.minDate || '';
     qa('.inline-add', $('entryForm')).forEach(function (x) { x.classList.add('hidden'); });
     openSheet('sheet');
@@ -1086,7 +1081,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   });
 
   // Enter moves to the next field; on the last one it saves
-  var ORDER = ['amt', 'head', 'sub', 'desc', 'company', 'mode', 'date'];
+  var ORDER = ['amt', 'head', 'sub', 'desc', 'mode', 'date'];
   $('entryForm').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' || e.target.tagName === 'BUTTON' || e.target.closest('.inline-add')) return;
     e.preventDefault();
@@ -1105,9 +1100,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     if (!(amt > 0)) { toast('Enter an amount greater than 0.', true); $('amt').focus(); return; }
     if (!head) { toast('Choose a head.', true); $('head').focus(); return; }
     if (g && g.subs.length && !$('sub').value) { toast('Choose a sub-head for ' + head + '.', true); $('sub').focus(); return; }
-    if (g && g.reimb && !$('company').value) { toast('Choose the company — ' + head + ' is a reimbursable head.', true); $('company').focus(); return; }
     var entry = { date: $('date').value, mode: $('mode').value, type: form.type, head: head, sub: $('sub').value, desc: $('desc').value,
-      amt: amt, company: g && g.reimb ? $('company').value : '' };
+      amt: amt };
     var t = S.editing;
     $('saveBtn').disabled = true;
     var p = t ? call('waUpdate', t.row, { date: t.date, type: t.type, head: t.head, amt: t.amt }, entry) : call('waAdd', entry);
@@ -1128,10 +1122,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     }).catch(fail).then(function () { $('saveBtn').disabled = false; });
   });
 
-  // "+" beside head, sub-head and company
+  // "+" beside head and sub-head
   qa('#entryForm .plus').forEach(function (b) {
     b.addEventListener('click', function () {
-      var box = $({ head: 'newHeadBox', sub: 'newSubBox', company: 'newCompanyBox' }[b.dataset.new]);
+      var box = $({ head: 'newHeadBox', sub: 'newSubBox' }[b.dataset.new]);
       box.classList.toggle('hidden'); if (!box.classList.contains('hidden')) box.querySelector('input').focus();
     });
   });
@@ -1146,13 +1140,12 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     btn.addEventListener('click', go);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
   }
-  inlineAdd('newHeadBox', function (name) { return call('waAddHead', form.type, name).then(function (l) { S.lists = l; fillHeads(name); fillSubs(''); syncReimb(); return l; }); });
+  inlineAdd('newHeadBox', function (name) { return call('waAddHead', form.type, name).then(function (l) { S.lists = l; fillHeads(name); fillSubs(''); syncRecov(); return l; }); });
   inlineAdd('newSubBox', function (name) {
     var head = $('head').value;
     if (!head) return Promise.reject(new Error('Choose the head first.'));
     return call('waAddSub', form.type, head, name).then(function (l) { S.lists = l; fillSubs(name); return l; });
   });
-  inlineAdd('newCompanyBox', function (name) { return call('waAddHead', 'Company', name).then(function (l) { S.lists = l; fillCompanies(name); return l; }); });
 
   // ---------- categories ----------
   var TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
@@ -1162,14 +1155,14 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   });
   function renderCats() {
     var L = S.lists, t = S.list, box = $('hlist');
-    $('newHead').placeholder = t === 'Mode' ? 'New payment mode, e.g. HDFC card' : t === 'Company' ? 'New company' : 'New head';
-    if (t === 'Mode' || t === 'Company') {
-      var items = t === 'Mode' ? L.modes : L.companies;
+    $('newHead').placeholder = t === 'Mode' ? 'New payment mode, e.g. HDFC card' : 'New head';
+    if (t === 'Mode') {
+      var items = L.modes;
       box.innerHTML = items.length ? items.map(function (m) {
         var builtin = t === 'Mode' && isCash(m);
         return '<li class="hitem"><div class="hline"><span class="nm">' + esc(m) + '</span>' +
           (builtin ? '<span class="builtin">Built-in</span>' : '<button class="icon-btn del" data-del="' + esc(m) + '" aria-label="Delete ' + esc(m) + '">' + TRASH + '</button>') + '</div></li>';
-      }).join('') : '<li class="empty">No companies yet. Add the ones that reimburse you.</li>';
+      }).join('') : '<li class="empty">No payment modes yet.</li>';
       qa('#hlist [data-del]').forEach(function (b) {
         b.addEventListener('click', function () {
           if (!window.confirm('Delete "' + b.dataset.del + '" from the list? Existing transactions keep it.')) return;
@@ -1180,21 +1173,21 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     }
     var hs = L.groups[t] || [];
     box.innerHTML = hs.map(function (g, i) {
-      var sys = L.system.indexOf(g.head.toLowerCase()) >= 0, open = S.openSub === g.head;
+      var open = S.openSub === g.head;
       return '<li class="hitem"><div class="hline"><span class="dot" style="background:' + headColor(g.head) + '"></span><span class="nm">' + esc(g.head) + '</span>' +
-        '<button class="switch" role="switch" aria-checked="' + !!g.reimb + '" data-reimb="' + i + '"><span class="knob"></span>Reimbursable</button>' +
+        '<button class="switch" role="switch" aria-checked="' + !!g.recov + '" data-recov="' + i + '" title="Money to be recovered or paid back; each sub-head is its own ledger"><span class="knob"></span>Recoverable</button>' +
         '<button class="icon-btn" data-plus="' + i + '" aria-expanded="' + open + '" aria-label="Add a sub-head under ' + esc(g.head) + '">' + PLUS + '</button>' +
-        (sys ? '<span class="builtin" title="Used for money lent and borrowed">Built-in</span>' : '<button class="icon-btn del" data-delhead="' + i + '" aria-label="Delete ' + esc(g.head) + '">' + TRASH + '</button>') + '</div>' +
+        '<button class="icon-btn del" data-delhead="' + i + '" aria-label="Delete ' + esc(g.head) + '">' + TRASH + '</button></div>' +
         '<ul class="subs">' + g.subs.map(function (s) {
           return '<li><span>' + esc(s) + '</span><button class="icon-btn del" data-delsub="' + i + '" data-sub="' + esc(s) + '" aria-label="Delete ' + esc(s) + '">' + TRASH + '</button></li>';
         }).join('') +
         (open ? '<li class="inline-add"><input type="text" placeholder="New sub-head under ' + esc(g.head) + '" data-addsub="' + i + '" aria-label="New sub-head under ' + esc(g.head) + '"><button class="btn ink" data-addsubbtn="' + i + '">Add</button></li>' : '') +
         '</ul></li>';
     }).join('');
-    qa('#hlist [data-reimb]').forEach(function (b) {
+    qa('#hlist [data-recov]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var g = hs[+b.dataset.reimb];
-        call('waSetReimb', t, g.head, !g.reimb).then(function (l) { afterLists(l); toast(g.head + (g.reimb ? ' is no longer reimbursable' : ' is now reimbursable')); }).catch(fail);
+        var g = hs[+b.dataset.recov];
+        call('waSetRecov', t, g.head, !g.recov).then(function (l) { afterLists(l); toast(g.head + (g.recov ? ' is no longer recoverable' : ' is now recoverable')); }).catch(fail);
       });
     });
     qa('#hlist [data-plus]').forEach(function (b) {
@@ -1290,7 +1283,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   function start() {
     $('topSub').textContent = 'Loading…';
     call('waInit').then(function (r) {
-      S.lists = { groups: r.groups, colors: r.colors, system: r.system, modes: r.modes, companies: r.companies };
+      S.lists = { groups: r.groups, colors: r.colors, modes: r.modes };
       S.dash = r.dash; S.today = r.today; S.minDate = r.minDate; S.periods = r.periods;
       syncTxControls(); resetForm(); renderDash();
     }).catch(function (e) { if (e && e.auth) return; $('topSub').textContent = 'Could not load'; fail(e); });
