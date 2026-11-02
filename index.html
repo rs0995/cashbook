@@ -57,6 +57,16 @@ main { padding: 0 0 24px; max-width: 1180px; width: 100%; min-width: 0; margin: 
 .brand small { display: block; font-family: var(--text); font-weight: 400; font-size: 12px; color: var(--muted); letter-spacing: 0; }
 .top h1 { margin: 0; }
 .period-pick { width: auto; min-width: 150px; }
+.top-r { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.top-r .icon-btn.on { background: var(--paper); color: var(--ink); }
+.set-list { list-style: none; margin: 0; padding: 0; }
+.set-list li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--mist); }
+.set-list li:last-child { border-bottom: 0; }
+.set-list .txt { min-width: 0; }
+.set-list .txt b { display: block; font-size: 15px; }
+.set-list .txt small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; line-height: 1.35; }
+.set-list .switch { padding: 0; }
+.set-list .switch[disabled] { opacity: .4; }
 
 /* custom dates: From | To | Show, all one height */
 .custom { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; padding: 0 18px 12px; }
@@ -284,6 +294,20 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 .subs .inline-add input { min-height: 40px; font-size: 15px; }
 .subs .inline-add .btn { min-height: 40px; padding: 6px 14px; }
 .builtin { font-size: 12px; color: var(--muted); }
+.ren { display: flex; gap: 6px; flex: 1; min-width: 0; }
+.ren input { flex: 1; min-width: 0; min-height: 40px; font-size: 15px; }
+.ren .btn { min-height: 40px; padding: 6px 14px; }
+.subs li .ops { display: flex; flex: none; }
+/* phones: everything stays on the head's line; a long name wraps instead of being cut */
+@media (max-width: 559px) {
+  .hline { gap: 4px; }
+  .hline .nm { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+  .hline .switch { gap: 5px; font-size: 12px; }
+  .hline .switch .knob { width: 34px; height: 20px; }
+  .hline .switch .knob::after { width: 14px; height: 14px; }
+  .hline .switch[aria-checked="true"] .knob::after { left: 17px; }
+  .hitem .hline .icon-btn { width: 32px; height: 32px; }
+}
 .actions { display: grid; gap: 10px; }
 .result { margin-top: 10px; font-size: 14px; white-space: pre-wrap; }
 .result a { color: var(--marigold-deep); font-weight: 700; }
@@ -359,7 +383,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   <main>
     <div class="top" id="top">
       <div class="brand">Cash Book<small id="topSub">Loading…</small></div>
-      <select class="period-pick" id="period" aria-label="Period"></select>
+      <div class="top-r">
+        <select class="period-pick" id="period" aria-label="Period"></select>
+        <button class="icon-btn" id="setBtn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      </div>
     </div>
     <div class="custom hidden" id="custom">
       <label>From<input type="date" id="cStart"></label>
@@ -515,6 +542,28 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       </div>
     </section>
 
+    <!-- Settings -->
+    <section id="v-settings" class="hidden">
+      <div class="sec">
+        <h2>Statement</h2>
+        <ul class="set-list">
+          <li><div class="txt"><b>Show sub-heads</b><small>List sub-heads under each head on the Summary and in the PDF.</small></div>
+            <button class="switch" role="switch" aria-checked="false" data-set="showSubs" aria-label="Show sub-heads"><span class="knob"></span></button></li>
+          <li><div class="txt"><b>Hide empty heads</b><small>Leave out heads with nothing in cash this period. A party paid back in full counts as nothing.</small></div>
+            <button class="switch" role="switch" aria-checked="false" data-set="hideHeads" aria-label="Hide empty heads"><span class="knob"></span></button></li>
+          <li><div class="txt"><b>Hide empty sub-heads</b><small>Leave out sub-heads with nothing in cash this period, such as a settled party. Needs Show sub-heads.</small></div>
+            <button class="switch" role="switch" aria-checked="false" data-set="hideSubs" aria-label="Hide empty sub-heads"><span class="knob"></span></button></li>
+        </ul>
+      </div>
+      <div class="sec">
+        <h2>PDF</h2>
+        <ul class="set-list">
+          <li><div class="txt"><b>List the entries</b><small>Add every entry of the period after the statement.</small></div>
+            <button class="switch" role="switch" aria-checked="false" data-set="pdfTxns" aria-label="List the entries in the PDF"><span class="knob"></span></button></li>
+        </ul>
+      </div>
+    </section>
+
     <!-- Categories -->
     <section id="v-cats" class="hidden">
       <div class="sec">
@@ -658,11 +707,12 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   }
 
   // ---------- navigation ----------
-  var NAV_OF = { dash: 'dash', entry: 'dash', ledger: 'ledger', txns: 'txns', detail: 'txns', cats: 'cats' }; // Quick entry opens from the Dashboard
+  var NAV_OF = { dash: 'dash', entry: 'dash', ledger: 'ledger', txns: 'txns', detail: 'txns', cats: 'cats', settings: '' }; // Quick entry opens from the Dashboard
   function show(view) {
     if (S.view === 'txns' && view === 'detail') S.listScroll = window.scrollY;
     S.view = view;
-    ['dash', 'entry', 'ledger', 'txns', 'detail', 'cats'].forEach(function (v) { $('v-' + v).classList.toggle('hidden', v !== view); });
+    ['dash', 'entry', 'ledger', 'txns', 'detail', 'cats', 'settings'].forEach(function (v) { $('v-' + v).classList.toggle('hidden', v !== view); });
+    $('setBtn').classList.toggle('on', view === 'settings'); $('setBtn').setAttribute('aria-pressed', view === 'settings');
     qa('.nav button[data-view]').forEach(function (b) { var on = b.dataset.view === NAV_OF[view]; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     var withPeriod = view === 'dash' || view === 'txns' || view === 'ledger';
     $('period').classList.toggle('hidden', !withPeriod);
@@ -670,6 +720,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     $('top').classList.toggle('hidden', view === 'detail');
     if (view === 'entry') { mountForm('page'); if (!$('date').value) $('date').value = S.today; }
     if (view === 'cats') renderCats();
+    if (view === 'settings') renderSettings();
     if (view === 'txns') { window.scrollTo(0, S.listScroll || 0); return; }
     window.scrollTo(0, 0);
   }
@@ -1149,9 +1200,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 
   // ---------- categories ----------
   var TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+  var PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
   var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
   qa('[data-list]').forEach(function (b) {
-    b.addEventListener('click', function () { S.list = b.dataset.list; S.openSub = null; qa('[data-list]').forEach(function (x) { x.classList.toggle('on', x === b); }); renderCats(); });
+    b.addEventListener('click', function () { S.list = b.dataset.list; S.openSub = null; S.ren = null; qa('[data-list]').forEach(function (x) { x.classList.toggle('on', x === b); }); renderCats(); });
   });
   function renderCats() {
     var L = S.lists, t = S.list, box = $('hlist');
@@ -1171,15 +1223,24 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       });
       return;
     }
-    var hs = L.groups[t] || [];
+    var hs = L.groups[t] || [], R = S.ren;
+    // a name being renamed shows as an input with Save
+    var renBox = function (old) {
+      return '<div class="ren"><input type="text" value="' + esc(old) + '" data-renin aria-label="New name for ' + esc(old) + '"><button class="btn ink" data-rensave>Save</button></div>';
+    };
+    var isRen = function (g, sub) { return R && R.type === t && R.head === g.head && R.sub === sub; };
     box.innerHTML = hs.map(function (g, i) {
       var open = S.openSub === g.head;
+      if (isRen(g, '')) return '<li class="hitem"><div class="hline"><span class="dot" style="background:' + headColor(g.head) + '"></span>' + renBox(g.head) + '</div></li>';
       return '<li class="hitem"><div class="hline"><span class="dot" style="background:' + headColor(g.head) + '"></span><span class="nm">' + esc(g.head) + '</span>' +
+        '<button class="icon-btn" data-ren="' + i + '" data-sub="" aria-label="Rename ' + esc(g.head) + '">' + PEN + '</button>' +
         '<button class="switch" role="switch" aria-checked="' + !!g.recov + '" data-recov="' + i + '" title="Money to be recovered or paid back; each sub-head is its own ledger"><span class="knob"></span>Recoverable</button>' +
         '<button class="icon-btn" data-plus="' + i + '" aria-expanded="' + open + '" aria-label="Add a sub-head under ' + esc(g.head) + '">' + PLUS + '</button>' +
         '<button class="icon-btn del" data-delhead="' + i + '" aria-label="Delete ' + esc(g.head) + '">' + TRASH + '</button></div>' +
         '<ul class="subs">' + g.subs.map(function (s) {
-          return '<li><span>' + esc(s) + '</span><button class="icon-btn del" data-delsub="' + i + '" data-sub="' + esc(s) + '" aria-label="Delete ' + esc(s) + '">' + TRASH + '</button></li>';
+          if (isRen(g, s)) return '<li>' + renBox(s) + '</li>';
+          return '<li><span>' + esc(s) + '</span><span class="ops"><button class="icon-btn" data-ren="' + i + '" data-sub="' + esc(s) + '" aria-label="Rename ' + esc(s) + '">' + PEN + '</button>' +
+            '<button class="icon-btn del" data-delsub="' + i + '" data-sub="' + esc(s) + '" aria-label="Delete ' + esc(s) + '">' + TRASH + '</button></span></li>';
         }).join('') +
         (open ? '<li class="inline-add"><input type="text" placeholder="New sub-head under ' + esc(g.head) + '" data-addsub="' + i + '" aria-label="New sub-head under ' + esc(g.head) + '"><button class="btn ink" data-addsubbtn="' + i + '">Add</button></li>' : '') +
         '</ul></li>';
@@ -1190,8 +1251,33 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
         call('waSetRecov', t, g.head, !g.recov).then(function (l) { afterLists(l); toast(g.head + (g.recov ? ' is no longer recoverable' : ' is now recoverable')); }).catch(fail);
       });
     });
+    qa('#hlist [data-ren]').forEach(function (b) {
+      b.addEventListener('click', function () { S.ren = { type: t, head: hs[+b.dataset.ren].head, sub: b.dataset.sub }; S.openSub = null; renderCats(); });
+    });
+    var rin = document.querySelector('#hlist [data-renin]');
+    if (rin) {
+      var rsave = document.querySelector('#hlist [data-rensave]'), old = R.sub || R.head;
+      var doRen = function () {
+        var name = rin.value.trim(); if (!name) { rin.focus(); return; }
+        if (name === old) { S.ren = null; renderCats(); return; }
+        rsave.disabled = true;
+        call('waRename', t, R.head, R.sub, name).then(function (l) {
+          S.ren = null;
+          var keep = form.type === t && $('head').value === R.head;
+          afterLists(l);
+          if (keep && !R.sub) { fillHeads(name); fillSubs(''); }
+          toast('Renamed ' + old + ' to ' + name + (l.renamed ? ' (' + l.renamed + (l.renamed === 1 ? ' entry)' : ' entries)') : ''));
+        }).catch(fail).then(function () { rsave.disabled = false; });
+      };
+      rsave.addEventListener('click', doRen);
+      rin.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') doRen();
+        if (e.key === 'Escape') { e.stopPropagation(); S.ren = null; renderCats(); }
+      });
+      rin.focus(); rin.select();
+    }
     qa('#hlist [data-plus]').forEach(function (b) {
-      b.addEventListener('click', function () { var h = hs[+b.dataset.plus].head; S.openSub = S.openSub === h ? null : h; renderCats(); });
+      b.addEventListener('click', function () { var h = hs[+b.dataset.plus].head; S.openSub = S.openSub === h ? null : h; S.ren = null; renderCats(); });
     });
     qa('#hlist [data-delhead]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1224,6 +1310,26 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     }
   }
   function afterLists(l) { S.lists = l; renderCats(); }
+
+  // ---------- settings (the Summary's settings panel) ----------
+  var SET_DONE = { showSubs: ['Sub-heads shown', 'Sub-heads hidden'], hideHeads: ['Empty heads hidden', 'Empty heads shown'],
+    hideSubs: ['Empty sub-heads hidden', 'Empty sub-heads shown'], pdfTxns: ['The PDF lists the entries', 'The PDF leaves out the entries'] };
+  function renderSettings() {
+    var st = S.settings || {};
+    qa('#v-settings [data-set]').forEach(function (b) {
+      b.setAttribute('aria-checked', !!st[b.dataset.set]);
+      b.disabled = b.dataset.set === 'hideSubs' && !st.showSubs;
+    });
+  }
+  qa('#v-settings [data-set]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.dataset.set, on = !(S.settings || {})[k];
+      b.disabled = true;
+      call('waSetSetting', k, on).then(function (st) { S.settings = st; renderSettings(); toast(SET_DONE[k][on ? 0 : 1]); })
+        .catch(function (e) { renderSettings(); fail(e); });
+    });
+  });
+  $('setBtn').addEventListener('click', function () { show(S.view === 'settings' ? 'dash' : 'settings'); });
   function addHead() {
     var name = $('newHead').value.trim(); if (!name) { $('newHead').focus(); return; }
     call('waAddHead', S.list, name).then(function (l) { $('newHead').value = ''; afterLists(l); toast('Added ' + name); }).catch(fail);
@@ -1284,6 +1390,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     $('topSub').textContent = 'Loading…';
     call('waInit').then(function (r) {
       S.lists = { groups: r.groups, colors: r.colors, modes: r.modes };
+      S.settings = r.settings || {};
       S.dash = r.dash; S.today = r.today; S.minDate = r.minDate; S.periods = r.periods;
       syncTxControls(); resetForm(); renderDash();
     }).catch(function (e) { if (e && e.auth) return; $('topSub').textContent = 'Could not load'; fail(e); });
