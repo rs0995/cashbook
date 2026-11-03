@@ -569,8 +569,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       <div class="sec">
         <h2>PDF</h2>
         <ul class="set-list">
-          <li><div class="txt"><b>List the entries</b><small>Add every entry of the period on a separate page after the statement: date, head, description and amount.</small></div>
+          <li><div class="txt"><b>List the entries</b><small>Add every entry of the period on a separate page after the statement: date, head, description and amount. Non-cash entries also show their payment mode.</small></div>
             <button class="switch" role="switch" aria-checked="false" data-set="pdfTxns" aria-label="List the entries in the PDF"><span class="knob"></span></button></li>
+          <li><div class="txt"><b>Leave out non-cash payments</b><small>Drop the Non-cash debits table from the statement and the non-cash entries from the list. The Summary sheet keeps them.</small></div>
+            <button class="switch" role="switch" aria-checked="false" data-set="pdfHideNonCash" aria-label="Leave out non-cash payments in the PDF"><span class="knob"></span></button></li>
         </ul>
       </div>
     </section>
@@ -1361,7 +1363,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 
   // ---------- settings (the Summary's settings panel) ----------
   var SET_DONE = { showSubs: ['Sub-heads shown', 'Sub-heads hidden'], hideHeads: ['Empty heads hidden', 'Empty heads shown'],
-    hideSubs: ['Empty sub-heads hidden', 'Empty sub-heads shown'], pdfTxns: ['The PDF lists the entries', 'The PDF leaves out the entries'] };
+    hideSubs: ['Empty sub-heads hidden', 'Empty sub-heads shown'], pdfTxns: ['The PDF lists the entries', 'The PDF leaves out the entries'],
+    pdfHideNonCash: ['The PDF leaves out non-cash payments', 'The PDF shows non-cash payments'] };
   function renderSettings() {
     var st = S.settings || {};
     qa('#v-settings [data-set]').forEach(function (b) {
