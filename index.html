@@ -146,6 +146,13 @@ main { padding: 0 0 24px; max-width: 1180px; width: 100%; min-width: 0; margin: 
 .rows { list-style: none; margin: 0; padding: 0; }
 .rows li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--mist); align-items: baseline; }
 .rows li:last-child { border-bottom: 0; }
+.rows li:has(.row-btn) { padding: 0; }
+.rows .row-btn { all: unset; box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; }
+.rows .row-btn:focus-visible { outline: 3px solid var(--marigold); outline-offset: 2px; border-radius: 6px; }
+.rows .row-btn .num { display: inline-flex; align-items: center; gap: 4px; }
+.rows .row-btn .chev { color: #A6AEB7; width: 18px; height: 18px; }
+#lFilter { margin-top: 10px; }
+
 #mediaSec { padding: 14px 16px 6px; }
 #mediaSec h2 { margin-bottom: 2px; }
 .rows .num { font-weight: 600; }
@@ -309,6 +316,9 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   .hitem .hline .icon-btn { width: 32px; height: 32px; }
 }
 .actions { display: grid; gap: 10px; }
+.act-row { display: flex; gap: 10px; }
+.act-row #pdfBtn { flex: 1; min-width: 0; }
+.act-row .set-btn { height: auto; min-height: 44px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
 .result { margin-top: 10px; font-size: 14px; white-space: pre-wrap; }
 .result a { color: var(--marigold-deep); font-weight: 700; }
 
@@ -385,7 +395,6 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       <div class="brand">Cash Book<small id="topSub">Loading…</small></div>
       <div class="top-r">
         <select class="period-pick" id="period" aria-label="Period"></select>
-        <button class="icon-btn" id="setBtn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       </div>
     </div>
     <div class="custom hidden" id="custom">
@@ -500,6 +509,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
           </div>
         </div>
         <p class="note" id="lNote"></p>
+        <div class="ledger-chip hidden" id="lFilter"><span id="lFilterName"></span><button type="button" id="lFilterX" aria-label="Show all ledgers">✕</button></div>
         <div class="lg-sum" id="lSum"></div>
       </div>
       <div id="ledgers"></div>
@@ -544,12 +554,13 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
 
     <!-- Settings -->
     <section id="v-settings" class="hidden">
+      <div class="crumb"><button type="button" id="setBack"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m14.5 6-6 6 6 6"/></svg>Categories</button></div>
       <div class="sec">
         <h2>Statement</h2>
         <ul class="set-list">
           <li><div class="txt"><b>Show sub-heads</b><small>List sub-heads under each head on the Summary and in the PDF.</small></div>
             <button class="switch" role="switch" aria-checked="false" data-set="showSubs" aria-label="Show sub-heads"><span class="knob"></span></button></li>
-          <li><div class="txt"><b>Hide empty heads</b><small>Leave out heads with nothing in cash this period. A party paid back in full counts as nothing.</small></div>
+          <li><div class="txt"><b>Hide empty heads</b><small>Leave out heads with nothing in cash this period. A party paid back in full counts as nothing. Payment modes with no non-cash debits are left out too.</small></div>
             <button class="switch" role="switch" aria-checked="false" data-set="hideHeads" aria-label="Hide empty heads"><span class="knob"></span></button></li>
           <li><div class="txt"><b>Hide empty sub-heads</b><small>Leave out sub-heads with nothing in cash this period, such as a settled party. Needs Show sub-heads.</small></div>
             <button class="switch" role="switch" aria-checked="false" data-set="hideSubs" aria-label="Hide empty sub-heads"><span class="knob"></span></button></li>
@@ -582,7 +593,10 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
       <div class="sec">
         <h2>Statement and audit</h2>
         <div class="actions">
-          <button class="btn quiet" id="pdfBtn">Generate PDF of this period</button>
+          <div class="act-row">
+            <button class="btn quiet" id="pdfBtn">Generate PDF of this period</button>
+            <button class="icon-btn set-btn" id="setBtn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+          </div>
           <button class="btn ink" id="auditBtn">Send for audit</button>
         </div>
         <div class="result" id="actResult"></div>
@@ -673,7 +687,12 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     });
   }
   function done() { if (--pending <= 0) { pending = 0; $('busy').classList.remove('on'); } }
-  function fail(e) { if (e && e.auth) return; toast((e && e.message) || String(e), true); }
+  function fail(e) {
+    if (e && e.auth) return;
+    var m = (e && e.message) || String(e);
+    if (/^Unknown request/.test(m)) m = 'The cash book script is older than this app. Paste the latest Apps Script files and deploy a new version.';
+    toast(m, true);
+  }
 
   // ---------- formatting ----------
   var inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -707,12 +726,11 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   }
 
   // ---------- navigation ----------
-  var NAV_OF = { dash: 'dash', entry: 'dash', ledger: 'ledger', txns: 'txns', detail: 'txns', cats: 'cats', settings: '' }; // Quick entry opens from the Dashboard
+  var NAV_OF = { dash: 'dash', entry: 'dash', ledger: 'ledger', txns: 'txns', detail: 'txns', cats: 'cats', settings: 'cats' }; // Quick entry opens from the Dashboard
   function show(view) {
     if (S.view === 'txns' && view === 'detail') S.listScroll = window.scrollY;
     S.view = view;
     ['dash', 'entry', 'ledger', 'txns', 'detail', 'cats', 'settings'].forEach(function (v) { $('v-' + v).classList.toggle('hidden', v !== view); });
-    $('setBtn').classList.toggle('on', view === 'settings'); $('setBtn').setAttribute('aria-pressed', view === 'settings');
     qa('.nav button[data-view]').forEach(function (b) { var on = b.dataset.view === NAV_OF[view]; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     var withPeriod = view === 'dash' || view === 'txns' || view === 'ledger';
     $('period').classList.toggle('hidden', !withPeriod);
@@ -727,7 +745,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   qa('.nav button[data-view]').forEach(function (b) {
     b.addEventListener('click', function () {
       var v = b.dataset.view;
-      if (v === 'txns') { S.listScroll = 0; show('txns'); loadTxns(); } else if (v === 'ledger') { show('ledger'); loadLedgers(); } else show(v);
+      if (v === 'txns') { S.listScroll = 0; show('txns'); loadTxns(); } else if (v === 'ledger') { S.lfilter = null; show('ledger'); loadLedgers(); } else show(v);
     });
   });
 
@@ -771,9 +789,15 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     $('eCount').textContent = d.count + (d.count === 1 ? ' entry' : ' entries');
     $('eAudit').textContent = d.lastAudit ? 'Last audit ' + fmtDate(d.lastAudit) : 'Not audited yet';
     $('recov').innerHTML = [
-      ['To recover', d.recoverPending],
-      ['To pay back', d.payPending],
-    ].map(function (r) { return '<li><span>' + r[0] + '</span><span class="num">' + money(r[1]) + '</span></li>'; }).join('');
+      ['recover', 'To recover', d.recoverPending],
+      ['repay', 'To pay back', d.payPending],
+    ].map(function (r) {
+      return '<li><button type="button" class="row-btn" data-settle="' + r[0] + '" aria-label="' + r[1] + ' ' + money(r[2]) + ': show the ledgers">' +
+        '<span>' + r[1] + '</span><span class="num">' + money(r[2]) + CHEV + '</span></button></li>';
+    }).join('');
+    qa('#recov [data-settle]').forEach(function (b) {
+      b.addEventListener('click', function () { S.lfilter = b.dataset.settle; S.lscope = 'all'; show('ledger'); loadLedgers(); });
+    });
     $('mediaSec').classList.toggle('hidden', !d.media.length);
     $('media').innerHTML = d.media.map(function (m) { return '<li><span>' + esc(m.mode) + '</span><span class="num">' + money(m.total) + '</span></li>'; }).join('');
     renderChart();
@@ -816,7 +840,7 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     var h = heads.filter(function (x) { return x.head.toLowerCase() === S.drill.toLowerCase(); })[0];
     if (!h) { S.drill = null; return chartItems(); }
     var n = h.subs.length;
-    return h.subs.map(function (s, i) { return { label: s.sub || '(no sub-head)', total: s.total, color: headColor(h.head, n > 1 ? i / (n - 1) : .35), drill: false }; });
+    return h.subs.map(function (s, i) { return { label: s.sub || '(no sub-head)', sub: s.sub || '', total: s.total, color: headColor(h.head, n > 1 ? i / (n - 1) : .35), drill: false }; });
   }
   function renderChart() {
     var items = chartItems(), total = items.reduce(function (a, x) { return a + x.total; }, 0);
@@ -836,13 +860,18 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     } else {
       lg.innerHTML = items.map(function (x, i) {
         var p = pct(x.total, total);
-        return '<li class="' + (x.drill ? '' : 'nodrill') + '"><button type="button" data-i="' + i + '"' + (x.drill ? ' aria-label="Show sub-heads of ' + esc(x.label) + '"' : ' tabindex="-1"') + '>' +
+        return '<li><button type="button" data-i="' + i + '" aria-label="' + (x.drill ? 'Show sub-heads of ' : 'Open the ledger of ') + esc(x.label) + '">' +
           '<span class="dot" style="background:' + x.color + '"></span><span class="name">' + esc(x.label) + '</span>' +
           '<span class="amt num">' + money(x.total) + '<small>' + p + '%</small></span>' +
           '<span class="bar"><i style="width:' + Math.max(p, 1) + '%;background:' + x.color + '"></i></span></button></li>';
       }).join('');
       qa('#legend button[data-i]').forEach(function (b) {
-        b.addEventListener('click', function () { var x = items[+b.dataset.i]; if (x && x.drill) { S.drill = x.label; renderChart(); } });
+        b.addEventListener('click', function () {
+          var x = items[+b.dataset.i]; if (!x) return;
+          if (x.drill) { S.drill = x.label; renderChart(); return; }
+          // a sub-head: its entries for this period, on the chart's side (cash only unless All modes is on)
+          openLedger(S.drill, x.sub, { scope: 'period', type: S.ctype, mode: S.allModes ? '' : 'Cash' });
+        });
       });
     }
     drawPie(items);
@@ -907,15 +936,33 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
   function lgLabel(name, n) { return name + ': ' + (n > 0 ? 'credit ' : n < 0 ? 'debit ' : '') + money(Math.abs(n)); }
   // sub-heads step from deep to light in the head's hue, as on the dashboard chart
   function lgShade(h, j) { var n = h.subs.length; return headColor(h.head, n > 1 ? j / (n - 1) * .8 : .2); }
+  var LFILTER = { recover: ['To recover', 'Nothing to recover.'], repay: ['To pay back', 'Nothing to pay back.'] };
+  $('lFilterX').addEventListener('click', function () { S.lfilter = null; renderLedgers(); });
+  // To recover / To pay back (from the Dashboard): only the recoverable heads' sub-heads with a balance on that side
+  function settleHeads(hs, f) {
+    var side = function (x) { return f === 'recover' ? x.net < 0 : x.net > 0; }, out = [];
+    hs.forEach(function (h) {
+      if (!isRecov(h.head)) return;
+      var subs = h.subs.length ? h.subs.filter(side) : (side(h) ? [{ sub: '', credit: h.credit, debit: h.debit, net: h.net }] : []);
+      if (!subs.length) return;
+      var c = 0, dbt = 0, n = 0; subs.forEach(function (x) { c += x.credit; dbt += x.debit; n += x.net; });
+      out.push({ head: h.head, credit: c, debit: dbt, net: Math.round(n * 100) / 100, subs: subs });
+    });
+    return out;
+  }
   function renderLedgers() {
+    var f = S.lfilter && LFILTER[S.lfilter] ? S.lfilter : null;
     var hs = (S.ledgers && S.ledgers.heads) || [], box = $('ledgers'), d = S.dash;
+    if (f) hs = settleHeads(hs, f);
+    $('lFilter').classList.toggle('hidden', !f);
+    if (f) $('lFilterName').textContent = LFILTER[f][0];
     $('lNote').textContent = S.lscope === 'period' && d ? fmtDate(d.start, { day: 'numeric', month: 'short' }) + ' – ' + fmtDate(d.end) : 'Every entry, all dates';
     var cr = 0, dr = 0; hs.forEach(function (h) { cr += h.credit; dr += h.debit; });
     $('lSum').innerHTML = '<div class="cr"><span>Total credit</span><b>' + money(cr) + '</b></div><div class="dr"><span>Total debit</span><b>' + money(dr) + '</b></div>';
     // only ledgers with entries: a head or sub-head with nothing in it is left out
     var used = function (x) { return x.credit || x.debit; };
     if (!hs.some(used)) {
-      box.innerHTML = '<div class="sec empty">' + (S.lscope === 'period' ? 'No entries this period.' : 'No entries yet. Add one from the Dashboard.') + '</div>'; return;
+      box.innerHTML = '<div class="sec empty">' + (f ? LFILTER[f][1] : S.lscope === 'period' ? 'No entries this period.' : 'No entries yet. Add one from the Dashboard.') + '</div>'; return;
     }
     box.innerHTML = hs.map(function (h, i) {
       if (!used(h)) return '';
@@ -940,8 +987,9 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     });
   }
   // a ledger's entries: the Transactions list for that head (and sub-head), same dates as the ledger
-  function openLedger(head, sub) {
-    S.tx = { scope: S.lscope === 'period' ? 'period' : 'all', type: '', head: head, sub: sub, mode: '', q: '' };
+  function openLedger(head, sub, o) {
+    o = o || {};
+    S.tx = { scope: o.scope || (S.lscope === 'period' ? 'period' : 'all'), type: o.type || '', head: head, sub: sub, mode: o.mode || '', q: '' };
     syncTxControls(); S.listScroll = 0; show('txns'); loadTxns();
   }
 
@@ -1329,7 +1377,8 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
         .catch(function (e) { renderSettings(); fail(e); });
     });
   });
-  $('setBtn').addEventListener('click', function () { show(S.view === 'settings' ? 'dash' : 'settings'); });
+  $('setBtn').addEventListener('click', function () { show('settings'); });
+  $('setBack').addEventListener('click', function () { show('cats'); });
   function addHead() {
     var name = $('newHead').value.trim(); if (!name) { $('newHead').focus(); return; }
     call('waAddHead', S.list, name).then(function (l) { $('newHead').value = ''; afterLists(l); toast('Added ' + name); }).catch(fail);
