@@ -748,8 +748,18 @@ select:disabled, input:disabled { background-color: var(--mist); color: var(--mu
     b.addEventListener('click', function () {
       var v = b.dataset.view;
       if (v === 'txns') { S.listScroll = 0; show('txns'); loadTxns(); } else if (v === 'ledger') { S.lfilter = null; show('ledger'); loadLedgers(); } else show(v);
+      if (v === 'dash') refreshDash();
     });
   });
+  // The totals are read once at start and after each save here; entries typed in the sheet need a fresh read.
+  var dashBusy = false;
+  function refreshDash() {
+    if (!S.dash || dashBusy) return;
+    dashBusy = true;
+    call('waDashboard').then(function (d) { S.dash = d; if (S.view === 'dash') renderDash(); })
+      .catch(function () { /* keep the figures shown */ }).then(function () { dashBusy = false; });
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refreshDash(); });
 
   // ---------- period ----------
   var PERIOD_LABEL = { 'This Week': 'This week', 'This Month': 'This month', 'This Year': 'This year', 'Custom': 'Custom dates' };
